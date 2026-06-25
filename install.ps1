@@ -1,7 +1,8 @@
 $ErrorActionPreference = "Stop"
 
 $RepoZip = "https://github.com/dix105/wisper-cli/archive/refs/heads/master.zip"
-$InstallDir = if ($env:WISPER_INSTALL_DIR) { $env:WISPER_INSTALL_DIR } else { Join-Path $env:USERPROFILE ".wisper-cli\app" }
+$InstallRoot = if ($env:WISPER_INSTALL_ROOT) { $env:WISPER_INSTALL_ROOT } else { Join-Path $env:USERPROFILE ".wisper-cli" }
+$InstallDir = if ($env:WISPER_INSTALL_DIR) { $env:WISPER_INSTALL_DIR } else { Join-Path $InstallRoot "app" }
 $BinDir = if ($env:WISPER_BIN_DIR) { $env:WISPER_BIN_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }
 $BinPath = Join-Path $BinDir "wisper.cmd"
 $TmpDir = Join-Path $env:TEMP ("wisper-cli-" + [guid]::NewGuid().ToString())
@@ -21,29 +22,26 @@ if (-not (Get-Command "sox" -ErrorAction SilentlyContinue)) {
   Write-Host "Install with: winget install ChrisBagwell.SoX"
 }
 
-New-Item -ItemType Directory -Force -Path $TmpDir, $BinDir | Out-Null
+New-Item -ItemType Directory -Force -Path $TmpDir, $BinDir, $InstallRoot | Out-Null
 
 try {
   $ZipPath = Join-Path $TmpDir "wisper-cli.zip"
+  $StageDir = Join-Path $TmpDir "stage"
+
   Write-Host "Downloading Wisper CLI..."
   Invoke-WebRequest -Uri $RepoZip -OutFile $ZipPath
 
   Write-Host "Extracting..."
   Expand-Archive -Path $ZipPath -DestinationPath $TmpDir -Force
 
-  if (Test-Path $InstallDir) {
-    Remove-Item $InstallDir -Recurse -Force
-  }
-
-  $InstallParent = Split-Path -Parent $InstallDir
-  New-Item -ItemType Directory -Force -Path $InstallParent | Out-Null
   $SourceDir = Get-ChildItem -Path $TmpDir -Directory | Where-Object { $_.Name -like "wisper-cli-*" } | Select-Object -First 1
   if (-not $SourceDir) {
     throw "Could not find extracted wisper-cli source folder."
   }
-  Move-Item $SourceDir.FullName $InstallDir
 
-  Push-Location $InstallDir
+  Move-Item $SourceDir.FullName $StageDir
+
+  Push-Location $StageDir
   try {
     Write-Host "Installing dependencies..."
     npm install --silent
@@ -54,8 +52,18 @@ try {
     Pop-Location
   }
 
-  $CliPath = Join-Path $InstallDir "dist\cli.js"
-  Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$CliPath`" %*`r`n" -Encoding ASCII
+  $CliPath = Join-Path $StageDir "dist\cli.js"
+  if (-not (Test-Path $CliPath)) {
+    throw "Build completed but dist\cli.js was not found. Install aborted without touching current install."
+  }
+
+  if (Test-Path $InstallDir) {
+    Remove-Item $InstallDir -Recurse -Force
+  }
+  Move-Item $StageDir $InstallDir
+
+  $FinalCliPath = Join-Path $InstallDir "dist\cli.js"
+  Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$FinalCliPath`" %*`r`n" -Encoding ASCII
 
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathParts = @()
