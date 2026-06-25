@@ -12,6 +12,7 @@ import { pasteIntoActiveApp } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { captureShortcut } from './shortcut-capture.js';
 import { log, readLogs } from './log.js';
+import { clearListenerPid, stopListener, writeListenerPid } from './process-state.js';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -39,6 +40,17 @@ async function main() {
     case 'logs':
       console.log(await readLogs());
       break;
+    case 'stop': {
+      const stopped = await stopListener();
+      console.log(stopped ? 'Wisper listener stopped.' : 'No running listener found.');
+      break;
+    }
+    case 'restart': {
+      await stopListener();
+      const listener = startListenerNow();
+      console.log(listener.message);
+      break;
+    }
     case 'transcribe': {
       const file = args[0];
       if (!file) throw new Error('Usage: wisper transcribe <audio-file>');
@@ -85,6 +97,8 @@ Commands:
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper listen           Run background listener
+  wisper stop             Stop background listener
+  wisper restart          Restart background listener
   wisper logs             Show listener logs
   wisper transcribe <file> Transcribe an audio file
   wisper app              Open local web app
@@ -158,6 +172,11 @@ async function setShortcut(allowDefault = false, prompt = createPrompt()) {
       : (await prompt.ask(`Shortcut${allowDefault ? ` [${defaultShortcut}]` : ''}: `) || defaultShortcut);
     await updateConfig({ shortcut });
     console.log(`Shortcut set to ${shortcut}.`);
+    if (arguments.length < 2) {
+      await stopListener();
+      const listener = startListenerNow();
+      console.log(listener.message);
+    }
   } finally {
     if (arguments.length < 2) prompt.close();
   }
@@ -174,6 +193,11 @@ async function showStatus() {
 }
 
 async function listen() {
+  await writeListenerPid();
+  process.once('exit', () => { void clearListenerPid(); });
+  process.once('SIGINT', () => { void clearListenerPid(); process.exit(0); });
+  process.once('SIGTERM', () => { void clearListenerPid(); process.exit(0); });
+
   const config = await loadConfig();
   const shortcut = config.shortcut || defaultShortcut;
   let busy = false;

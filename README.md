@@ -48,6 +48,8 @@ wisper provider   # choose provider from menu + verify key
 wisper shortcut   # set shortcut
 wisper status     # show current setup
 wisper listen     # run background listener
+wisper stop       # stop background listener
+wisper restart    # restart background listener
 wisper logs       # show listener logs
 wisper open       # open local web app
 ```
