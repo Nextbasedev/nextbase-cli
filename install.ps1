@@ -30,7 +30,13 @@ try {
     Remove-Item $InstallDir -Recurse -Force
   }
 
-  Move-Item (Join-Path $TmpDir "wisper-cli-master") $InstallDir
+  $InstallParent = Split-Path -Parent $InstallDir
+  New-Item -ItemType Directory -Force -Path $InstallParent | Out-Null
+  $SourceDir = Get-ChildItem -Path $TmpDir -Directory | Where-Object { $_.Name -like "wisper-cli-*" } | Select-Object -First 1
+  if (-not $SourceDir) {
+    throw "Could not find extracted wisper-cli source folder."
+  }
+  Move-Item $SourceDir.FullName $InstallDir
 
   Push-Location $InstallDir
   try {
