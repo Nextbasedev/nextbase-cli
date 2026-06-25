@@ -1,5 +1,22 @@
 # Wisper CLI
 
+## Install without Git
+
+If you have Node.js/npm installed, run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dix105/wisper-cli/master/install.sh | bash
+```
+
+Then:
+
+```bash
+wisper setup
+```
+
+The installer downloads the repo, builds it, and links `wisper` into `~/.local/bin`.
+
+
 Clean CLI-first base for a Wispr Flow-style dictation tool.
 
 ## Simple UX
