@@ -8,7 +8,8 @@ type ModifierLabel = typeof modifierLabels[number];
 function modifierFromKey(name?: string): ModifierLabel | '' {
   if (!name) return '';
   const key = name.toLowerCase();
-  if (key === 'ctrl' || key === 'control' || key === 'meta' || key === 'command' || key === 'cmd') return 'CommandOrControl';
+  if (key === 'ctrl' || key === 'control' || key === 'command' || key === 'cmd') return 'CommandOrControl';
+  if (key === 'meta') return process.platform === 'darwin' ? 'CommandOrControl' : 'Alt';
   if (key === 'alt' || key === 'option') return 'Alt';
   if (key === 'shift') return 'Shift';
   return '';
@@ -56,7 +57,8 @@ export async function captureShortcut(defaultShortcut: string): Promise<string> 
       if (key.name === 'escape') return cleanup(defaultShortcut);
       if (key.ctrl && key.name === 'c') process.exit(130);
 
-      if (key.ctrl || key.meta) modifiers.add('CommandOrControl');
+      if (key.ctrl) modifiers.add('CommandOrControl');
+      if (key.meta) modifiers.add(process.platform === 'darwin' ? 'CommandOrControl' : 'Alt');
       if (key.shift) modifiers.add('Shift');
 
       const modifier = modifierFromKey(key.name);
