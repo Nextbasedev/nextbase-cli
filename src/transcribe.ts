@@ -15,14 +15,17 @@ export async function transcribeFile(file: string, config: Config): Promise<stri
 
 async function audioForm(file: string) {
   const bytes = await readFile(file);
-  const blob = new Blob([bytes], { type: 'audio/wav' });
-  return { blob, name: basename(file) };
+  const name = basename(file).match(/\.(wav|mp3|flac|m4a|ogg|opus|webm|mp4|mpeg|mpga)$/i)
+    ? basename(file)
+    : `${basename(file)}.wav`;
+  const audioFile = new File([bytes], name, { type: 'audio/wav' });
+  return { audioFile, name };
 }
 
 async function transcribeGroq(file: string, key: string, model: string) {
-  const { blob, name } = await audioForm(file);
+  const { audioFile } = await audioForm(file);
   const form = new FormData();
-  form.set('file', blob, name);
+  form.set('file', audioFile);
   form.set('model', model);
   form.set('response_format', 'json');
 
@@ -37,9 +40,9 @@ async function transcribeGroq(file: string, key: string, model: string) {
 }
 
 async function transcribeElevenLabs(file: string, key: string, model: string) {
-  const { blob, name } = await audioForm(file);
+  const { audioFile } = await audioForm(file);
   const form = new FormData();
-  form.set('file', blob, name);
+  form.set('file', audioFile);
   form.set('model_id', model);
 
   const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', {
@@ -53,9 +56,9 @@ async function transcribeElevenLabs(file: string, key: string, model: string) {
 }
 
 async function transcribeSarvam(file: string, key: string, model: string) {
-  const { blob, name } = await audioForm(file);
+  const { audioFile } = await audioForm(file);
   const form = new FormData();
-  form.set('file', blob, name);
+  form.set('file', audioFile);
   form.set('model', model);
   form.set('language_code', 'unknown');
 
