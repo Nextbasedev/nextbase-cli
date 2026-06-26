@@ -227,9 +227,15 @@ async function listen() {
   await log(`Shortcut: ${shortcut}`);
   await log('Press shortcut once to start recording, again to stop. Press Ctrl+C to stop listener.');
 
-  listenForShortcut(shortcut, (event) => {
+  const stopShortcut = listenForShortcut(shortcut, (event) => {
     void handleShortcutEvent(event).catch((error) => log(`Error: ${error.message}`));
   });
+  const keepAlive = setInterval(() => undefined, 60_000);
+  process.once('exit', () => { clearInterval(keepAlive); stopShortcut?.(); });
+
+  if (process.platform === 'darwin') {
+    await log('Mac note: if shortcut does not trigger, allow Terminal/iTerm in System Settings → Privacy & Security → Accessibility.');
+  }
 
   async function handleShortcutEvent(event?: 'down' | 'up') {
     if (busy) return;
