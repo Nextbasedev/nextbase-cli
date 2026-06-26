@@ -50,6 +50,10 @@ try {
 
     Write-Host "Building CLI..."
     npm run build --silent
+    if (-not (Test-Path (Join-Path $StageDir "dist\cli.js"))) {
+      Write-Host "Local TypeScript build did not produce dist; trying npx fallback..."
+      npx --yes -p typescript tsc -p tsconfig.json
+    }
   } finally {
     Pop-Location
   }

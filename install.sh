@@ -47,7 +47,11 @@ export npm_config_production=false
 npm install --include=dev --silent
 
 echo "Building CLI..."
-npm run build --silent
+npm run build --silent || true
+if [ ! -f "$INSTALL_DIR/dist/cli.js" ]; then
+  echo "Local TypeScript build did not produce dist; trying npx fallback..."
+  npx --yes -p typescript tsc -p tsconfig.json
+fi
 chmod +x "$INSTALL_DIR/dist/cli.js"
 
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"
