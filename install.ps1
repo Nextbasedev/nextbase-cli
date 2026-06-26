@@ -14,6 +14,13 @@ function Need($Command, $InstallHint) {
   }
 }
 
+function Run($Exe, $Arguments) {
+  & $Exe @Arguments
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Exe failed with exit code $LASTEXITCODE"
+  }
+}
+
 Need "node" "Install Node.js from https://nodejs.org, then reopen terminal."
 Need "npm" "Install Node.js from https://nodejs.org, then reopen terminal."
 
@@ -46,13 +53,21 @@ try {
     Write-Host "Installing dependencies..."
     $env:NODE_ENV = "development"
     $env:npm_config_production = "false"
-    npm install --include=dev --silent
+    Run "npm" @("install", "--include=dev", "--production=false", "--silent")
+
+    if (-not (Test-Path (Join-Path $StageDir "node_modules\clipboardy"))) {
+      throw "Dependency install failed: node_modules\clipboardy not found."
+    }
+    if (-not (Test-Path (Join-Path $StageDir "node_modules\@types\node"))) {
+      Write-Host "Installing missing Node types..."
+      Run "npm" @("install", "--save-dev", "@types/node", "typescript", "--silent")
+    }
 
     Write-Host "Building CLI..."
-    npm run build --silent
+    Run "npm" @("run", "build", "--silent")
     if (-not (Test-Path (Join-Path $StageDir "dist\cli.js"))) {
       Write-Host "Local TypeScript build did not produce dist; trying npx fallback..."
-      npx --yes -p typescript tsc -p tsconfig.json
+      Run "npx" @("--yes", "-p", "typescript", "-p", "@types/node", "tsc", "-p", "tsconfig.json")
     }
   } finally {
     Pop-Location
