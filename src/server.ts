@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, join } from 'node:path';
+import { dirname, extname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadHistory } from './storage.js';
 
 const contentTypes: Record<string, string> = {
@@ -10,7 +11,7 @@ const contentTypes: Record<string, string> = {
 };
 
 export async function startWebApp(port = 3838): Promise<string> {
-  const webRoot = join(process.cwd(), 'web');
+  const webRoot = join(dirname(fileURLToPath(import.meta.url)), '..', 'web');
   const server = createServer(async (req, res) => {
     try {
       if (req.url === '/api/history') {
