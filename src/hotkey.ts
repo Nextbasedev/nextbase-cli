@@ -2,12 +2,6 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { GlobalKeyboardListener } = require('node-global-key-listener') as {
-  GlobalKeyboardListener: new () => {
-    addListener(listener: (event: KeyEvent, down: Record<string, boolean>) => void): void;
-    kill?: () => void;
-  };
-};
 
 type KeyEvent = {
   name?: string;
@@ -133,6 +127,12 @@ try {
 }
 
 function listenForKeyboardEvents(shortcut: string, onPress: () => void) {
+  const { GlobalKeyboardListener } = require('node-global-key-listener') as {
+    GlobalKeyboardListener: new () => {
+      addListener(listener: (event: KeyEvent, down: Record<string, boolean>) => void): void;
+      kill?: () => void;
+    };
+  };
   const target = normalizeShortcut(shortcut);
   const keyboard = new GlobalKeyboardListener();
   let armed = true;
