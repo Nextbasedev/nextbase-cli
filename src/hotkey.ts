@@ -72,7 +72,7 @@ function windowsVirtualKey(key: string) {
   throw new Error(`Unsupported Windows shortcut key: ${key}`);
 }
 
-function listenForWindowsHotkey(shortcut: string, onPress: () => void) {
+function listenForWindowsHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   const parsed = parseShortcut(shortcut);
   let modifiers = 0;
   if (parsed.alt) modifiers += 0x0001;
@@ -81,27 +81,48 @@ function listenForWindowsHotkey(shortcut: string, onPress: () => void) {
   if (parsed.meta) modifiers += 0x0008;
   const vk = windowsVirtualKey(parsed.key);
 
+  const watchedKeys = [
+    parsed.ctrl ? 0x11 : undefined,
+    parsed.alt ? 0x12 : undefined,
+    parsed.shift ? 0x10 : undefined,
+    parsed.meta ? 0x5B : undefined,
+    vk
+  ].filter((value): value is number => typeof value === 'number');
+
   const script = `
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
 public class HotKeyNative {
-  [DllImport("user32.dll")] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
+  [DllImport("user32.dll", SetLastError=true)] public static extern bool RegisterHotKey(IntPtr hWnd, int id, uint fsModifiers, uint vk);
   [DllImport("user32.dll")] public static extern bool UnregisterHotKey(IntPtr hWnd, int id);
   [DllImport("user32.dll")] public static extern sbyte GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+  [DllImport("kernel32.dll")] public static extern uint GetLastError();
   [StructLayout(LayoutKind.Sequential)] public struct MSG { public IntPtr hwnd; public uint message; public UIntPtr wParam; public IntPtr lParam; public uint time; public int pt_x; public int pt_y; }
 }
 "@
 $id = 9123
+$watched = @(${watchedKeys.join(',')})
 $ok = [HotKeyNative]::RegisterHotKey([IntPtr]::Zero, $id, ${modifiers}, ${vk})
-if (-not $ok) { [Console]::Error.WriteLine("REGISTER_FAILED"); exit 2 }
+if (-not $ok) { [Console]::Error.WriteLine("REGISTER_FAILED:" + [HotKeyNative]::GetLastError()); exit 2 }
 [Console]::Out.WriteLine("REGISTERED")
+function AllKeysDown {
+  foreach ($key in $watched) {
+    if (([HotKeyNative]::GetAsyncKeyState($key) -band 0x8000) -eq 0) { return $false }
+  }
+  return $true
+}
 try {
   while ($true) {
     $msg = New-Object HotKeyNative+MSG
     $result = [HotKeyNative]::GetMessage([ref]$msg, [IntPtr]::Zero, 0, 0)
     if ($result -eq 0) { break }
-    if ($msg.message -eq 0x0312 -and $msg.wParam.ToUInt32() -eq $id) { [Console]::Out.WriteLine("HOTKEY") }
+    if ($msg.message -eq 0x0312 -and $msg.wParam.ToUInt32() -eq $id) {
+      [Console]::Out.WriteLine("HOTKEY_DOWN")
+      while (AllKeysDown) { Start-Sleep -Milliseconds 35 }
+      [Console]::Out.WriteLine("HOTKEY_UP")
+    }
   }
 } finally {
   [HotKeyNative]::UnregisterHotKey([IntPtr]::Zero, $id) | Out-Null
@@ -116,7 +137,8 @@ try {
   child.stdout.on('data', (chunk: string) => {
     for (const line of chunk.split(/\r?\n/)) {
       if (line.trim() === 'REGISTERED') void log(`Shortcut registered: ${shortcut}`);
-      if (line.trim() === 'HOTKEY') onPress();
+      if (line.trim() === 'HOTKEY_DOWN') onPress('down');
+      if (line.trim() === 'HOTKEY_UP') onPress('up');
     }
   });
 
@@ -128,7 +150,7 @@ try {
   return () => child.kill();
 }
 
-function listenForKeyboardEvents(shortcut: string, onPress: () => void) {
+function listenForKeyboardEvents(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   const { GlobalKeyboardListener } = require('node-global-key-listener') as {
     GlobalKeyboardListener: new () => {
       addListener(listener: (event: KeyEvent, down: Record<string, boolean>) => void): void;
@@ -158,7 +180,7 @@ function listenForKeyboardEvents(shortcut: string, onPress: () => void) {
   return () => keyboard.kill?.();
 }
 
-export function listenForShortcut(shortcut: string, onPress: () => void) {
+export function listenForShortcut(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   if (process.platform === 'win32') return listenForWindowsHotkey(shortcut, onPress);
   return listenForKeyboardEvents(shortcut, onPress);
 }

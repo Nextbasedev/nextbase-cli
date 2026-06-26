@@ -208,22 +208,40 @@ async function listen() {
   await log(`Shortcut: ${shortcut}`);
   await log('Press shortcut once to start recording, again to stop. Press Ctrl+C to stop listener.');
 
-  listenForShortcut(shortcut, () => {
-    void handleShortcutPress().catch((error) => log(`Error: ${error.message}`));
+  listenForShortcut(shortcut, (event) => {
+    void handleShortcutEvent(event).catch((error) => log(`Error: ${error.message}`));
   });
 
-  async function handleShortcutPress() {
+  async function handleShortcutEvent(event?: 'down' | 'up') {
     if (busy) return;
+
+    if (event === 'down') {
+      if (isRecording()) return;
+      await log('Shortcut held. Recording... release shortcut to stop.');
+      await startRecording();
+      return;
+    }
+
+    if (event === 'up') {
+      if (!isRecording()) return;
+      await finishRecording();
+      return;
+    }
+
     if (!isRecording()) {
       await log('Shortcut detected. Recording... press shortcut again to stop.');
       await startRecording();
       return;
     }
+    await finishRecording();
+  }
 
+  async function finishRecording() {
     busy = true;
     try {
-      await log('Shortcut detected. Stopping recording...');
+      await log('Shortcut released. Stopping recording...');
       const recording = await stopRecording();
+      if (recording.durationMs < 500) throw new Error('Recording too short. Hold shortcut while speaking, then release.');
       await log(`Transcribing ${Math.round(recording.durationMs / 1000)}s audio...`);
       const latestConfig = await loadConfig();
       const text = await transcribeFile(recording.file, latestConfig);
