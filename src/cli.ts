@@ -6,7 +6,7 @@ import { defaultShortcut, loadConfig, modelOptions, providers, updateConfig, typ
 import { createPrompt } from './prompt.js';
 import { enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
-import { isRecording, startRecording, stopRecording } from './audio.js';
+import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
 import { pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
@@ -285,6 +285,8 @@ async function listen() {
       const pasteStart = Date.now();
       await pasteIntoActiveApp(text);
       const pasteMs = Date.now() - pasteStart;
+
+      void cleanupOldRecordings();
 
       await log(`Timing: transcribe ${transcribeMs}ms, save ${saveMs}ms, paste ${pasteMs}ms, total ${Date.now() - totalStart}ms.`);
       await log(`Inserted: ${text}`);

@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises';
+import { mkdir, readdir, rm, stat } from 'node:fs/promises';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -85,4 +85,27 @@ export async function stopRecording(): Promise<{ file: string; durationMs: numbe
     await current.done.catch(() => undefined);
   }
   return { file: current.file, durationMs: Date.now() - current.startedAt };
+}
+
+
+export async function cleanupOldRecordings(options = { maxFiles: 30, maxAgeMs: 24 * 60 * 60 * 1000 }) {
+  const dir = join(homedir(), '.wisper-cli', 'tmp');
+  let files: { path: string; mtimeMs: number }[] = [];
+  try {
+    const names = await readdir(dir);
+    files = await Promise.all(names
+      .filter((name) => name.toLowerCase().endsWith('.wav'))
+      .map(async (name) => {
+        const path = join(dir, name);
+        const info = await stat(path);
+        return { path, mtimeMs: info.mtimeMs };
+      }));
+  } catch {
+    return;
+  }
+
+  const now = Date.now();
+  const sorted = files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const removable = sorted.filter((file, index) => index >= options.maxFiles || now - file.mtimeMs > options.maxAgeMs);
+  await Promise.all(removable.map((file) => rm(file.path, { force: true }).catch(() => undefined)));
 }

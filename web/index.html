@@ -23,17 +23,23 @@
       </div>
     </main>
     <script>
+      let lastRender = '';
       async function load() {
         const history = await fetch('/api/history').then(r => r.json());
         const root = document.querySelector('#history');
-        root.innerHTML = history.length ? history.map(item => `
+        const nextRender = history.length ? history.map(item => `
           <div class="item">
             <div class="meta">${item.createdAt} · ${item.source || 'manual'}</div>
             <div>${item.text}</div>
           </div>
         `).join('') : '<p>No transcripts yet. Try: <code>wisper add "hello"</code></p>';
+        if (nextRender !== lastRender) {
+          root.innerHTML = nextRender;
+          lastRender = nextRender;
+        }
       }
       load();
+      setInterval(load, 1500);
     </script>
   </body>
 </html>
