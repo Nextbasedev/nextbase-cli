@@ -129,12 +129,12 @@ async function setup() {
       await updateConfig({ autostart: false });
       console.log('Autostart skipped.');
     }
-    const listener = startListenerNow();
-    console.log(listener.message);
   } finally {
     prompt.close();
   }
   await showStatus();
+  console.log('\nStarting Wisper listener now...');
+  await listen();
 }
 
 async function selectProvider(prompt = createPrompt()) {
