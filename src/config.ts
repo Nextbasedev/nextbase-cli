@@ -18,6 +18,8 @@ export type Config = {
   keys?: Partial<Record<Provider, string>>;
   autostart?: boolean;
   audioDevice?: string;
+  autoPolish?: boolean;
+  polishModel?: string;
 };
 
 const dataDir = join(homedir(), '.wisper-cli');

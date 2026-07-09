@@ -10,6 +10,7 @@ import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from
 import { listenForShortcut } from './hotkey.js';
 import { pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
+import { polishDictationIfEnabled, rewriteText, type RewriteMode } from './polish.js';
 import { captureShortcut } from './shortcut-capture.js';
 import { autoDetectInputDevice, listInputDevices, preferredInputDevice } from './devices.js';
 import { log, readLogs } from './log.js';
@@ -32,6 +33,9 @@ async function main() {
       break;
     case 'provider':
       await selectProvider();
+      break;
+    case 'polish':
+      await polishCommand(args);
       break;
     case 'shortcut':
       await setShortcut();
@@ -102,6 +106,8 @@ Commands:
   wisper setup            Simple first-time setup
   wisper update           Install latest version and run only missing setup prompts
   wisper provider         Pick provider from a menu
+  wisper polish on/off    Enable or disable auto polish
+  wisper polish "text"   Rewrite text with Groq polish mode
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper mic              Pick microphone device
@@ -140,6 +146,15 @@ async function setup(updateMode = false) {
     const micConfig = await loadConfig();
     if (process.platform === 'win32' && (!micConfig.audioDevice || updateMode)) {
       await autoSelectMic(updateMode);
+    }
+
+    const polishConfig = await loadConfig();
+    if (polishConfig.autoPolish === undefined) {
+      await configureAutoPolish(prompt);
+    } else if (updateMode && polishConfig.autoPolish && !polishConfig.keys?.groq) {
+      await configureAutoPolish(prompt, true);
+    } else if (updateMode) {
+      console.log(`Auto polish: ${polishConfig.autoPolish ? 'enabled' : 'disabled'}. Keeping existing setup.`);
     }
 
     const current = await loadConfig();
@@ -206,6 +221,70 @@ async function startListenerAndReport() {
   } else {
     console.log('Listener start requested. If shortcut does not work, run: wisper logs');
   }
+}
+
+async function configureAutoPolish(prompt = createPrompt(), forceEnable = false) {
+  try {
+    const wantsAutoPolish = forceEnable || await prompt.confirm('Auto polish dictated text before paste?', false);
+    if (!wantsAutoPolish) {
+      await updateConfig({ autoPolish: false });
+      console.log('Auto polish disabled. Dictation will paste raw transcripts.');
+      return;
+    }
+
+    const config = await loadConfig();
+    let key = config.keys?.groq;
+    if (!key) {
+      key = await prompt.ask('Paste Groq API key for auto polish: ');
+      const verification = await verifyProviderKey('groq', key);
+      console.log(verification.message);
+    }
+
+    await updateConfig({ autoPolish: true, polishModel: 'llama-3.3-70b-versatile', keys: key ? { groq: key } : undefined });
+    console.log('Auto polish enabled. Dictation will be polished before paste.');
+  } finally {
+    if (arguments.length === 0) prompt.close();
+  }
+}
+
+async function polishCommand(args: string[]) {
+  const action = args[0]?.toLowerCase();
+
+  if (!action || action === 'status') {
+    const config = await loadConfig();
+    console.log(`Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
+    console.log(`Polish model: ${config.polishModel || 'llama-3.3-70b-versatile'}`);
+    console.log(`Groq key: ${config.keys?.groq ? 'saved' : 'not set'}`);
+    return;
+  }
+
+  if (['on', 'enable', 'enabled'].includes(action)) {
+    const prompt = createPrompt();
+    try {
+      await configureAutoPolish(prompt, true);
+    } finally {
+      prompt.close();
+    }
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  if (['off', 'disable', 'disabled'].includes(action)) {
+    await updateConfig({ autoPolish: false });
+    console.log('Auto polish disabled.');
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  const modes = new Set(['clean', 'polish', 'professional', 'shorter', 'friendly']);
+  const mode = modes.has(action) ? action as RewriteMode : 'polish';
+  const text = (modes.has(action) ? args.slice(1) : args).join(' ').trim();
+  if (!text) throw new Error('Usage: wisper polish "text" or wisper polish on/off');
+
+  const rewritten = await rewriteText(text, await loadConfig(), mode);
+  console.log(rewritten);
 }
 
 async function selectProvider(prompt = createPrompt()) {
@@ -301,6 +380,7 @@ async function showStatus() {
   console.log(`  Shortcut: ${config.shortcut || 'not set'}`);
   console.log(`  Microphone: ${preferredInputDevice(config.audioDevice)}`);
   console.log(`  API key: ${config.provider && config.keys?.[config.provider] ? 'saved' : 'not set'}`);
+  console.log(`  Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
   console.log(`  Autostart: ${config.autostart ? 'enabled' : 'not enabled'}`);
 }
 
@@ -402,18 +482,23 @@ async function listen() {
       const transcribeMs = Date.now() - transcribeStart;
       if (!text) throw new Error('Empty transcript returned.');
 
+      const polishStart = Date.now();
+      if (latestConfig.autoPolish) await log('Polishing dictated text before paste...');
+      const finalText = await polishDictationIfEnabled(text, latestConfig);
+      const polishMs = Date.now() - polishStart;
+
       const saveStart = Date.now();
-      await saveTranscript(text, recording.file);
+      await saveTranscript(finalText, recording.file);
       const saveMs = Date.now() - saveStart;
 
       const pasteStart = Date.now();
-      await pasteIntoActiveApp(text);
+      await pasteIntoActiveApp(finalText);
       const pasteMs = Date.now() - pasteStart;
 
       void cleanupOldRecordings();
 
-      await log(`Timing: transcribe ${transcribeMs}ms, save ${saveMs}ms, paste ${pasteMs}ms, total ${Date.now() - totalStart}ms.`);
-      await log(`Inserted: ${text}`);
+      await log(`Timing: transcribe ${transcribeMs}ms, polish ${polishMs}ms, save ${saveMs}ms, paste ${pasteMs}ms, total ${Date.now() - totalStart}ms.`);
+      await log(`Inserted: ${finalText}`);
     } finally {
       busy = false;
     }
