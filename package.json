@@ -13,9 +13,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
-    "clipboardy": "^5.3.1",
-    "mic": "^2.1.2",
-    "node-global-key-listener": "^0.3.0"
+    "clipboardy": "^5.3.1"
   },
   "devDependencies": {
     "@types/node": "latest",

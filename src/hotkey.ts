@@ -1,10 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
-import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { log } from './log.js';
 
-const require = createRequire(import.meta.url);
 
 type KeyEvent = {
   name?: string;
@@ -35,18 +33,6 @@ export function normalizeShortcut(shortcut: string) {
     .filter(Boolean)
     .sort()
     .join('+');
-}
-
-function eventName(event: KeyEvent) {
-  return normalizeKey(event.name || event.rawKey?.name || '');
-}
-
-function activeShortcut(down: Record<string, boolean>, currentKey: string) {
-  const keys = Object.entries(down)
-    .filter(([, pressed]) => pressed)
-    .map(([key]) => normalizeKey(key));
-  if (!keys.includes(currentKey)) keys.push(currentKey);
-  return keys.sort().join('+');
 }
 
 function parseShortcut(shortcut: string) {
@@ -188,38 +174,8 @@ function listenForMacHotkey(shortcut: string, onPress: (event?: 'down' | 'up') =
   return () => child.kill();
 }
 
-function listenForKeyboardEvents(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
-  const { GlobalKeyboardListener } = require('node-global-key-listener') as {
-    GlobalKeyboardListener: new () => {
-      addListener(listener: (event: KeyEvent, down: Record<string, boolean>) => void): void;
-      kill?: () => void;
-    };
-  };
-  const target = normalizeShortcut(shortcut);
-  const keyboard = new GlobalKeyboardListener();
-  let armed = true;
-
-  keyboard.addListener((event, down) => {
-    const key = eventName(event);
-    if (!key) return;
-
-    if (event.state === 'UP') {
-      armed = true;
-      return;
-    }
-
-    if (!armed) return;
-    if (activeShortcut(down, key) === target) {
-      armed = false;
-      onPress();
-    }
-  });
-
-  return () => keyboard.kill?.();
-}
-
 export function listenForShortcut(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   if (process.platform === 'win32') return listenForWindowsHotkey(shortcut, onPress);
   if (process.platform === 'darwin') return listenForMacHotkey(shortcut, onPress);
-  return listenForKeyboardEvents(shortcut, onPress);
+  throw new Error(`Global shortcuts are not supported yet on ${process.platform}. Windows and macOS are supported.`);
 }
