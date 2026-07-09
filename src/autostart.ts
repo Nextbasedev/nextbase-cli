@@ -65,10 +65,18 @@ export async function enableAutostart(): Promise<AutostartResult> {
   }
 
   if (process.platform === 'win32') {
-    const value = [quote(command.executable), ...command.args.map(quote)].join(' ');
+    const dir = join(homedir(), '.wisper-cli');
+    const file = join(dir, 'wisper-start-hidden.vbs');
+    const launchCommand = [quote(command.executable), ...command.args.map(quote)].join(' ');
+    await mkdir(dir, { recursive: true });
+    await writeFile(file, `Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run ${quote(launchCommand)}, 0, False
+`);
+    const value = `wscript.exe //B ${quote(file)}`;
     const result = spawnSync('reg', ['add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/t', 'REG_SZ', '/d', value, '/f'], { stdio: 'ignore' });
-    return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled in Windows startup apps.' : 'Could not enable Windows autostart.' };
+    return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled in Windows startup apps as hidden background listener.' : 'Could not enable Windows autostart.' };
   }
+
 
   if (process.platform === 'linux') {
     const dir = join(homedir(), '.config', 'systemd', 'user');
