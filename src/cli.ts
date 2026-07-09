@@ -11,7 +11,7 @@ import { listenForShortcut } from './hotkey.js';
 import { pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { captureShortcut } from './shortcut-capture.js';
-import { listInputDevices, preferredInputDevice } from './devices.js';
+import { autoDetectInputDevice, listInputDevices, preferredInputDevice } from './devices.js';
 import { log, readLogs } from './log.js';
 import { clearListenerPid, stopListener, writeListenerPid } from './process-state.js';
 import { spawn } from 'node:child_process';
@@ -40,7 +40,7 @@ async function main() {
       await showStatus();
       break;
     case 'mic':
-      await selectMic();
+      await selectMic(args.includes('--auto'));
       break;
     case 'listen':
       await listen();
@@ -106,6 +106,7 @@ Commands:
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper mic              Pick microphone device
+  wisper mic --auto       Test microphones and pick working one
   wisper listen           Run background listener
   wisper stop             Stop background listener
   wisper restart          Restart background listener
@@ -135,6 +136,11 @@ async function setup(updateMode = false) {
       await setShortcut(true, prompt);
     } else if (updateMode) {
       console.log(`Shortcut already configured: ${latestConfig.shortcut}`);
+    }
+
+    const micConfig = await loadConfig();
+    if (process.platform === 'win32' && (!micConfig.audioDevice || updateMode)) {
+      await autoSelectMic(updateMode);
     }
 
     const current = await loadConfig();
@@ -221,7 +227,31 @@ async function selectModel(prompt = createPrompt()) {
   }
 }
 
-async function selectMic() {
+async function autoSelectMic(updateMode = false) {
+  if (process.platform !== 'win32') return;
+
+  const config = await loadConfig();
+  console.log(updateMode ? 'Checking microphone...' : 'Auto-detecting microphone...');
+  const result = autoDetectInputDevice(config.audioDevice);
+  const bestProbe = result.probes.find((probe) => probe.device === result.device);
+  await updateConfig({ audioDevice: result.device });
+  console.log(`Microphone set to ${result.device}${bestProbe ? ` (signal ${bestProbe.score.toFixed(5)})` : ''}.`);
+
+  const silent = result.probes.filter((probe) => !probe.ok).map((probe) => probe.device);
+  if (silent.length && updateMode) {
+    console.log(`Ignored silent/unusable input(s): ${silent.join(', ')}`);
+  }
+}
+
+async function selectMic(auto = false) {
+  if (auto) {
+    await autoSelectMic();
+    await stopListener();
+    const listener = startListenerNow();
+    console.log(listener.message);
+    return;
+  }
+
   const prompt = createPrompt();
   try {
     const devices = listInputDevices();

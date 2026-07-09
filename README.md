@@ -56,6 +56,7 @@ Useful commands:
 ```bash
 wisper provider   # choose provider from menu + verify key
 wisper shortcut   # set shortcut
+wisper mic --auto # test microphones and pick working one
 wisper status     # show current setup
 wisper update     # install latest and only ask missing setup prompts
 wisper listen     # run background listener
@@ -72,6 +73,7 @@ wisper open       # open local web app
 - `wisper setup` for simple first-time setup
 - `wisper provider` to choose provider from a menu
 - `wisper shortcut` to set shortcut from a prompt
+- `wisper mic --auto` to record tiny test samples and pick the working microphone
 - `wisper status` to show current setup
 - `wisper update` to install latest version while preserving setup
 - `wisper listen` background listener target
