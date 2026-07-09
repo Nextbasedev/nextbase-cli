@@ -28,6 +28,14 @@ Then:
 wisper setup
 ```
 
+To update later without redoing setup:
+
+```bash
+wisper update
+```
+
+The updater installs the latest version, keeps existing API key/shortcut/history, asks only for missing new options, refreshes autostart, and restarts the listener.
+
 The installer downloads the repo, builds it, and links `wisper` into your user bin directory.
 
 
@@ -49,6 +57,7 @@ Useful commands:
 wisper provider   # choose provider from menu + verify key
 wisper shortcut   # set shortcut
 wisper status     # show current setup
+wisper update     # install latest and only ask missing setup prompts
 wisper listen     # run background listener
 wisper stop       # stop background listener
 wisper restart    # restart background listener
@@ -64,6 +73,7 @@ wisper open       # open local web app
 - `wisper provider` to choose provider from a menu
 - `wisper shortcut` to set shortcut from a prompt
 - `wisper status` to show current setup
+- `wisper update` to install latest version while preserving setup
 - `wisper listen` background listener target
 - automatic startup after `wisper setup`
 - `wisper history` to print transcript history

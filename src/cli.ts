@@ -14,6 +14,7 @@ import { captureShortcut } from './shortcut-capture.js';
 import { listInputDevices, preferredInputDevice } from './devices.js';
 import { log, readLogs } from './log.js';
 import { clearListenerPid, stopListener, writeListenerPid } from './process-state.js';
+import { spawn } from 'node:child_process';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -24,7 +25,10 @@ async function main() {
       printHelp();
       break;
     case 'setup':
-      await setup();
+      await setup(args.includes('--update'));
+      break;
+    case 'update':
+      await update();
       break;
     case 'provider':
       await selectProvider();
@@ -97,6 +101,7 @@ function printHelp() {
 
 Commands:
   wisper setup            Simple first-time setup
+  wisper update           Install latest version and run only missing setup prompts
   wisper provider         Pick provider from a menu
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
@@ -114,27 +119,74 @@ Commands:
 `);
 }
 
-async function setup() {
-  console.log('Wisper setup');
+async function setup(updateMode = false) {
+  console.log(updateMode ? 'Wisper update setup' : 'Wisper setup');
   const prompt = createPrompt();
   try {
-    await selectModel(prompt);
-    await setShortcut(true, prompt);
-    const wantsAutostart = await prompt.confirm('Start Wisper automatically on computer startup?', true);
-    if (wantsAutostart) {
+    const config = await loadConfig();
+    if (!config.provider || !config.model || !config.keys?.[config.provider]) {
+      await selectModel(prompt);
+    } else if (updateMode) {
+      console.log('Model/API key already configured. Keeping existing setup.');
+    }
+
+    const latestConfig = await loadConfig();
+    if (!latestConfig.shortcut) {
+      await setShortcut(true, prompt);
+    } else if (updateMode) {
+      console.log(`Shortcut already configured: ${latestConfig.shortcut}`);
+    }
+
+    const current = await loadConfig();
+    if (current.autostart === true) {
       const result = await enableAutostart();
       await updateConfig({ autostart: result.enabled });
-      console.log(result.message);
+      console.log(updateMode ? `Autostart refreshed. ${result.message}` : result.message);
+    } else if (current.autostart === undefined || !updateMode) {
+      const wantsAutostart = await prompt.confirm('Start Wisper automatically on computer startup?', true);
+      if (wantsAutostart) {
+        const result = await enableAutostart();
+        await updateConfig({ autostart: result.enabled });
+        console.log(result.message);
+      } else {
+        await updateConfig({ autostart: false });
+        console.log('Autostart skipped.');
+      }
     } else {
-      await updateConfig({ autostart: false });
-      console.log('Autostart skipped.');
+      console.log('Autostart disabled. Keeping existing setup.');
     }
   } finally {
     prompt.close();
   }
   await showStatus();
+  if (updateMode) {
+    await stopListener();
+    const listener = startListenerNow();
+    console.log(listener.message);
+    return;
+  }
   console.log('\nStarting Wisper listener now...');
   await listen();
+}
+
+async function update() {
+  console.log('Updating Wisper CLI...');
+  const cacheBust = Date.now();
+  const command = process.platform === 'win32'
+    ? {
+        executable: 'powershell.exe',
+        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `iwr -useb "https://raw.githubusercontent.com/dix105/wisper-cli/master/install.ps1?x=${cacheBust}" | iex; wisper setup --update`]
+      }
+    : {
+        executable: 'bash',
+        args: ['-lc', `curl -fsSL "https://raw.githubusercontent.com/dix105/wisper-cli/master/install.sh?x=${cacheBust}" | bash && wisper setup --update`]
+      };
+
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command.executable, command.args, { stdio: 'inherit', shell: false });
+    child.once('error', reject);
+    child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`Update failed with exit code ${code}`)));
+  });
 }
 
 async function selectProvider(prompt = createPrompt()) {
