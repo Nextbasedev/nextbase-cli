@@ -313,10 +313,35 @@ async function listen() {
     void handleShortcutEvent(event).catch((error) => log(`Error: ${error.message}`));
   });
   const keepAlive = setInterval(() => undefined, 60_000);
-  process.once('exit', () => { clearInterval(keepAlive); stopShortcut?.(); });
+  const stopDeviceWatcher = startInputDeviceWatcher();
+  process.once('exit', () => { clearInterval(keepAlive); stopDeviceWatcher?.(); stopShortcut?.(); });
 
   if (process.platform === 'darwin') {
     await log('Mac note: if shortcut does not trigger, allow Terminal/iTerm in System Settings → Privacy & Security → Accessibility.');
+  }
+
+  function startInputDeviceWatcher() {
+    if (process.platform !== 'win32') return undefined;
+
+    let lastSignature = listInputDevices().join('|');
+    const interval = setInterval(() => {
+      void (async () => {
+        if (busy || isRecording()) return;
+
+        const signature = listInputDevices().join('|');
+        if (signature === lastSignature) return;
+        lastSignature = signature;
+
+        await log('Audio input device change detected. Rechecking microphones...');
+        const latestConfig = await loadConfig();
+        const result = autoDetectInputDevice(latestConfig.audioDevice);
+        await updateConfig({ audioDevice: result.device });
+        const probe = result.probes.find((item) => item.device === result.device);
+        await log(`Microphone auto-switched to ${result.device}${probe ? ` (signal ${probe.score.toFixed(5)})` : ''}.`);
+      })().catch((error) => log(`Mic auto-detect failed: ${error.message}`));
+    }, 5_000);
+
+    return () => clearInterval(interval);
   }
 
   async function handleShortcutEvent(event?: 'down' | 'up') {

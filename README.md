@@ -74,6 +74,7 @@ wisper open       # open local web app
 - `wisper provider` to choose provider from a menu
 - `wisper shortcut` to set shortcut from a prompt
 - `wisper mic --auto` to record tiny test samples and pick the working microphone
+- Windows listener watches for newly connected/removed microphones and auto-switches to the strongest working input
 - `wisper status` to show current setup
 - `wisper update` to install latest version while preserving setup
 - `wisper listen` background listener target
