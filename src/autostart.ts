@@ -26,15 +26,14 @@ export function startListenerNow(): AutostartResult {
   const command = currentCliCommand();
 
   if (process.platform === 'win32') {
-    const args = command.args.map(psQuote).join(', ');
-    const script = `Start-Process -WindowStyle Hidden -FilePath ${psQuote(command.executable)} -ArgumentList @(${args})`;
-    spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-    return { enabled: true, message: 'Wisper listener started in background.' };
+    const child = spawn(command.executable, command.args, { detached: true, stdio: 'ignore', windowsHide: true });
+    child.unref();
+    return { enabled: true, message: `Wisper listener started in background. PID: ${child.pid || 'unknown'}` };
   }
 
   const child = spawn(command.executable, command.args, { detached: true, stdio: 'ignore' });
   child.unref();
-  return { enabled: true, message: 'Wisper listener started in background.' };
+  return { enabled: true, message: `Wisper listener started in background. PID: ${child.pid || 'unknown'}` };
 }
 
 export async function enableAutostart(): Promise<AutostartResult> {

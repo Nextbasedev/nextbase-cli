@@ -55,8 +55,7 @@ async function main() {
     }
     case 'restart': {
       await stopListener();
-      const listener = startListenerNow();
-      console.log(listener.message);
+      await startListenerAndReport();
       break;
     }
     case 'transcribe': {
@@ -167,8 +166,7 @@ async function setup(updateMode = false) {
   await showStatus();
   if (updateMode) {
     await stopListener();
-    const listener = startListenerNow();
-    console.log(listener.message);
+    await startListenerAndReport();
     return;
   }
   console.log('\nStarting Wisper listener now...');
@@ -193,6 +191,21 @@ async function update() {
     child.once('error', reject);
     child.once('exit', (code) => code === 0 ? resolve() : reject(new Error(`Update failed with exit code ${code}`)));
   });
+}
+
+async function startListenerAndReport() {
+  const listener = startListenerNow();
+  console.log(listener.message);
+  await new Promise((resolve) => setTimeout(resolve, 1200));
+  const logs = await readLogs();
+  const tail = logs.split(/\r?\n/).slice(-25).join('\n');
+  if (tail.includes('Shortcut registered:')) {
+    console.log('Listener verified: shortcut registered.');
+  } else if (tail.includes('Could not register shortcut')) {
+    console.log('Listener started but shortcut registration failed. Run: wisper logs');
+  } else {
+    console.log('Listener start requested. If shortcut does not work, run: wisper logs');
+  }
 }
 
 async function selectProvider(prompt = createPrompt()) {
@@ -247,8 +260,7 @@ async function selectMic(auto = false) {
   if (auto) {
     await autoSelectMic();
     await stopListener();
-    const listener = startListenerNow();
-    console.log(listener.message);
+    await startListenerAndReport();
     return;
   }
 
@@ -274,8 +286,7 @@ async function setShortcut(allowDefault = false, prompt = createPrompt()) {
     console.log(`Shortcut set to ${shortcut}.`);
     if (arguments.length < 2) {
       await stopListener();
-      const listener = startListenerNow();
-      console.log(listener.message);
+      await startListenerAndReport();
     }
   } finally {
     if (arguments.length < 2) prompt.close();
