@@ -11,6 +11,7 @@ import { listenForShortcut } from './hotkey.js';
 import { pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { polishDictationIfEnabled, rewriteText, type RewriteMode } from './polish.js';
+import { restoreMediaBehavior, startMediaBehavior } from './media.js';
 import { captureShortcut } from './shortcut-capture.js';
 import { autoDetectInputDevice, listInputDevices, preferredInputDevice } from './devices.js';
 import { log, readLogs } from './log.js';
@@ -36,6 +37,9 @@ async function main() {
       break;
     case 'polish':
       await polishCommand(args);
+      break;
+    case 'media':
+      await mediaCommand(args);
       break;
     case 'shortcut':
       await setShortcut();
@@ -108,6 +112,7 @@ Commands:
   wisper provider         Pick provider from a menu
   wisper polish on/off    Enable or disable auto polish
   wisper polish "text"   Rewrite text with Groq polish mode
+  wisper media on/off     Lower system volume while recording
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper mic              Pick microphone device
@@ -155,6 +160,13 @@ async function setup(updateMode = false) {
       await configureAutoPolish(prompt, true);
     } else if (updateMode) {
       console.log(`Auto polish: ${polishConfig.autoPolish ? 'enabled' : 'disabled'}. Keeping existing setup.`);
+    }
+
+    const mediaConfig = await loadConfig();
+    if (mediaConfig.audioDucking === undefined) {
+      await configureMediaDucking(prompt);
+    } else if (updateMode) {
+      console.log(`Audio ducking: ${mediaConfig.audioDucking ? `enabled at ${mediaConfig.audioDuckingVolume ?? 35}%` : 'disabled'}. Keeping existing setup.`);
     }
 
     const current = await loadConfig();
@@ -287,6 +299,67 @@ async function polishCommand(args: string[]) {
   console.log(rewritten);
 }
 
+async function configureMediaDucking(prompt = createPrompt()) {
+  try {
+    const wantsDucking = await prompt.confirm('Lower system/media volume while recording?', true);
+    if (!wantsDucking) {
+      await updateConfig({ audioDucking: false });
+      console.log('Audio ducking disabled.');
+      return;
+    }
+
+    await updateConfig({ audioDucking: true, audioDuckingVolume: 35 });
+    console.log('Audio ducking enabled. System volume will lower to 35% while recording, then restore.');
+  } finally {
+    if (arguments.length === 0) prompt.close();
+  }
+}
+
+async function mediaCommand(args: string[]) {
+  const action = args[0]?.toLowerCase();
+
+  if (!action || action === 'status') {
+    const config = await loadConfig();
+    console.log(`Audio ducking: ${config.audioDucking === false ? 'disabled' : 'enabled'}`);
+    console.log(`Duck volume: ${config.audioDuckingVolume ?? 35}%`);
+    return;
+  }
+
+  if (['on', 'enable', 'enabled'].includes(action)) {
+    const volume = Number(args[1] || 35);
+    await updateConfig({ audioDucking: true, audioDuckingVolume: Number.isFinite(volume) ? Math.min(100, Math.max(0, volume)) : 35 });
+    console.log(`Audio ducking enabled at ${Number.isFinite(volume) ? Math.min(100, Math.max(0, volume)) : 35}%.`);
+    return;
+  }
+
+  if (['off', 'disable', 'disabled'].includes(action)) {
+    await updateConfig({ audioDucking: false });
+    await restoreMediaBehavior();
+    console.log('Audio ducking disabled.');
+    return;
+  }
+
+  if (action === 'volume') {
+    const volume = Number(args[1]);
+    if (!Number.isFinite(volume)) throw new Error('Usage: wisper media volume <0-100>');
+    await updateConfig({ audioDucking: true, audioDuckingVolume: Math.min(100, Math.max(0, volume)) });
+    console.log(`Audio ducking volume set to ${Math.min(100, Math.max(0, volume))}%.`);
+    return;
+  }
+
+  if (action === 'test') {
+    const config = await loadConfig();
+    console.log('Lowering volume for 2 seconds...');
+    await startMediaBehavior({ ...config, audioDucking: true });
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await restoreMediaBehavior();
+    console.log('Volume restored.');
+    return;
+  }
+
+  throw new Error('Usage: wisper media on/off/status/volume/test');
+}
+
 async function selectProvider(prompt = createPrompt()) {
   try {
     const provider = await prompt.choose('Select provider:', providers) as Provider;
@@ -381,6 +454,7 @@ async function showStatus() {
   console.log(`  Microphone: ${preferredInputDevice(config.audioDevice)}`);
   console.log(`  API key: ${config.provider && config.keys?.[config.provider] ? 'saved' : 'not set'}`);
   console.log(`  Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
+  console.log(`  Audio ducking: ${config.audioDucking === false ? 'disabled' : `enabled at ${config.audioDuckingVolume ?? 35}%`}`);
   console.log(`  Autostart: ${config.autostart ? 'enabled' : 'not enabled'}`);
 }
 
@@ -443,6 +517,7 @@ async function listen() {
       const latestConfig = await loadConfig();
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut held. Recording from ${device}... release shortcut to stop.`);
+      void startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
       await startRecording(device);
       return;
     }
@@ -457,6 +532,7 @@ async function listen() {
       const latestConfig = await loadConfig();
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut detected. Recording from ${device}... press shortcut again to stop.`);
+      void startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
       await startRecording(device);
       return;
     }
@@ -470,6 +546,7 @@ async function listen() {
       await log('Shortcut released. Stopping recording...');
       const stopStart = Date.now();
       const recording = await stopRecording();
+      await restoreMediaBehavior().catch((error) => log(`Audio restore failed: ${error.message}`));
       const stopMs = Date.now() - stopStart;
       if (recording.durationMs < 500) throw new Error('Recording too short. Hold shortcut while speaking, then release.');
 
@@ -500,6 +577,7 @@ async function listen() {
       await log(`Timing: transcribe ${transcribeMs}ms, polish ${polishMs}ms, save ${saveMs}ms, paste ${pasteMs}ms, total ${Date.now() - totalStart}ms.`);
       await log(`Inserted: ${finalText}`);
     } finally {
+      await restoreMediaBehavior().catch(() => undefined);
       busy = false;
     }
   }

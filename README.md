@@ -57,6 +57,8 @@ Useful commands:
 wisper provider   # choose provider from menu + verify key
 wisper polish on  # enable auto polish before paste
 wisper polish "rough dictated text" # polish text manually
+wisper media on 35 # lower system volume to 35% while recording
+wisper media test # test ducking/restoring system volume
 wisper shortcut   # set shortcut
 wisper mic --auto # test microphones and pick working one
 wisper status     # show current setup
@@ -76,6 +78,7 @@ wisper open       # open local web app
 - `wisper provider` to choose provider from a menu
 - `wisper polish on/off` to enable or disable auto-polish before paste
 - `wisper polish "text"` to rewrite text manually with Groq polish mode
+- `wisper media on/off/status/volume/test` to control Windows audio ducking while recording
 - `wisper shortcut` to set shortcut from a prompt
 - `wisper mic --auto` to record tiny test samples and pick the working microphone
 - Windows listener watches for newly connected/removed microphones and auto-switches to the strongest working input
@@ -84,6 +87,7 @@ wisper open       # open local web app
 - `wisper listen` background listener target
 - automatic startup after `wisper setup`
 - optional auto-polish mode powered by Groq chat completions (`llama-3.3-70b-versatile`)
+- optional Windows audio ducking: lower system/media volume while holding shortcut, then restore after release
 - `wisper history` to print transcript history
 - `wisper add "text"` to save a manual transcript while the base is being built
 - `wisper app` / `wisper open` to launch a local web dashboard

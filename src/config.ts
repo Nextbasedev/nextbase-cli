@@ -20,6 +20,8 @@ export type Config = {
   audioDevice?: string;
   autoPolish?: boolean;
   polishModel?: string;
+  audioDucking?: boolean;
+  audioDuckingVolume?: number;
 };
 
 const dataDir = join(homedir(), '.wisper-cli');
