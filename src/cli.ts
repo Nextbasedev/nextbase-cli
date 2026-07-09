@@ -517,7 +517,7 @@ async function listen() {
       const latestConfig = await loadConfig();
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut held. Recording from ${device}... release shortcut to stop.`);
-      void startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
+      await startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
       await startRecording(device);
       return;
     }
@@ -532,7 +532,7 @@ async function listen() {
       const latestConfig = await loadConfig();
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut detected. Recording from ${device}... press shortcut again to stop.`);
-      void startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
+      await startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
       await startRecording(device);
       return;
     }

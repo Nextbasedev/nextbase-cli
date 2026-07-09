@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import type { Config } from './config.js';
 
 let originalWindowsVolume: number | undefined;
@@ -94,13 +94,8 @@ function getWindowsVolume() {
 
 function setWindowsVolume(volume: number) {
   const target = Math.min(1, Math.max(0, volume));
-  const script = `${volumeInterop}\n[VolumeControl]::Set(${target.toFixed(4)})`;
-  const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
-    detached: true,
-    stdio: 'ignore',
-    windowsHide: true
-  });
-  child.unref();
+  const result = runPowerShell(`${volumeInterop}\n[VolumeControl]::Set(${target.toFixed(4)})`);
+  if (result.status !== 0) throw new Error((result.stderr || result.stdout || 'Could not set system volume').trim());
 }
 
 export async function startMediaBehavior(config: Config) {
