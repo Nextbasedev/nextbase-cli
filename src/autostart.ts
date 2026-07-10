@@ -18,9 +18,6 @@ function quote(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
 }
 
-function psQuote(value: string) {
-  return `'${value.replaceAll("'", "''")}'`;
-}
 
 export function startListenerNow(): AutostartResult {
   const command = currentCliCommand();
@@ -71,9 +68,23 @@ export async function enableAutostart(): Promise<AutostartResult> {
     await writeFile(file, `Set WshShell = CreateObject("WScript.Shell")
 WshShell.Run ${quote(launchCommand)}, 0, False
 `);
-    const value = `wscript.exe //B ${quote(file)}`;
-    const result = spawnSync('reg', ['add', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/t', 'REG_SZ', '/d', value, '/f'], { stdio: 'ignore' });
-    return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled in Windows startup apps as hidden background listener.' : 'Could not enable Windows autostart.' };
+
+    // Remove the older Run-key startup entry if present. It can open a console on login.
+    spawnSync('reg', ['delete', 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
+
+    // Use a logon Scheduled Task instead of the Run key. This starts after interactive login,
+    // hidden, and survives shutdown/restart more reliably. A true Windows Service would not work
+    // for global hotkeys because services do not run in the user's desktop session.
+    const taskCommand = `wscript.exe //B ${quote(file)}`;
+    const result = spawnSync('schtasks.exe', [
+      '/Create',
+      '/TN', 'WisperCLI',
+      '/SC', 'ONLOGON',
+      '/TR', taskCommand,
+      '/F'
+    ], { stdio: 'ignore', windowsHide: true });
+
+    return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled as hidden Windows logon task.' : 'Could not enable Windows autostart task.' };
   }
 
 
