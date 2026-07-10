@@ -69,22 +69,31 @@ export async function enableAutostart(): Promise<AutostartResult> {
 WshShell.Run ${quote(launchCommand)}, 0, False
 `);
 
-    // Remove the older Run-key startup entry if present. It can open a console on login.
+    // Remove older startup entries if present.
     spawnSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
+    spawnSync('schtasks.exe', ['/Delete', '/TN', 'WisperCLI', '/F'], { stdio: 'ignore', windowsHide: true });
 
-    // Use a logon Scheduled Task instead of the Run key. This starts after interactive login,
-    // hidden, and survives shutdown/restart more reliably. A true Windows Service would not work
+    // Use PowerShell ScheduledTasks API. It handles quoting better than schtasks /TR.
+    // This starts after interactive login, hidden. A real Windows Service would not work
     // for global hotkeys because services do not run in the user's desktop session.
-    const taskCommand = `wscript.exe //B ${quote(file)}`;
-    const result = spawnSync('schtasks.exe', [
-      '/Create',
-      '/TN', 'WisperCLI',
-      '/SC', 'ONLOGON',
-      '/TR', taskCommand,
-      '/F'
-    ], { stdio: 'ignore', windowsHide: true });
+    const script = `
+$ErrorActionPreference = 'Stop'
+$Action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument '//B "${file.replaceAll("'", "''")}"'
+$Trigger = New-ScheduledTaskTrigger -AtLogOn
+$Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName 'WisperCLI' -Action $Action -Trigger $Trigger -Settings $Settings -Force | Out-Null
+`;
+    const result = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+      encoding: 'utf8',
+      windowsHide: true
+    });
 
-    return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled as hidden Windows logon task.' : 'Could not enable Windows autostart task.' };
+    if (result.status === 0) {
+      return { enabled: true, message: 'Autostart enabled as hidden Windows logon task.' };
+    }
+
+    const error = (result.stderr || result.stdout || '').trim();
+    return { enabled: false, message: `Could not enable Windows autostart task.${error ? ` ${error}` : ''}` };
   }
 
 
