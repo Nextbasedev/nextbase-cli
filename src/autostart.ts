@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -107,6 +107,30 @@ WantedBy=default.target
     spawnSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'ignore' });
     const result = spawnSync('systemctl', ['--user', 'enable', 'wisper-cli.service'], { stdio: 'ignore' });
     return { enabled: result.status === 0, message: result.status === 0 ? 'Autostart enabled with systemd user service.' : `Autostart service created at ${file}. Enable it manually if systemd user services are unavailable.` };
+  }
+
+  return { enabled: false, message: `Autostart is not supported yet on ${process.platform}.` };
+}
+
+export async function disableAutostart(): Promise<AutostartResult> {
+  if (process.platform === 'darwin') {
+    const file = join(homedir(), 'Library', 'LaunchAgents', 'com.wisper.cli.plist');
+    spawnSync('launchctl', ['unload', file], { stdio: 'ignore' });
+    await rm(file, { force: true }).catch(() => undefined);
+    return { enabled: false, message: 'Autostart disabled. LaunchAgent removed.' };
+  }
+
+  if (process.platform === 'win32') {
+    spawnSync('schtasks.exe', ['/Delete', '/TN', 'WisperCLI', '/F'], { stdio: 'ignore', windowsHide: true });
+    spawnSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
+    return { enabled: false, message: 'Autostart disabled. Windows logon task removed.' };
+  }
+
+  if (process.platform === 'linux') {
+    spawnSync('systemctl', ['--user', 'disable', 'wisper-cli.service'], { stdio: 'ignore' });
+    await rm(join(homedir(), '.config', 'systemd', 'user', 'wisper-cli.service'), { force: true }).catch(() => undefined);
+    spawnSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'ignore' });
+    return { enabled: false, message: 'Autostart disabled. systemd user service removed.' };
   }
 
   return { enabled: false, message: `Autostart is not supported yet on ${process.platform}.` };

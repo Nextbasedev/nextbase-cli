@@ -59,6 +59,8 @@ wisper polish on  # enable auto polish before paste
 wisper polish "rough dictated text" # polish text manually
 wisper media on 35 # lower system volume to 35% while recording
 wisper media test # test ducking/restoring system volume
+wisper autostart on # enable startup listener
+wisper autostart off # disable startup listener
 wisper shortcut   # set shortcut
 wisper mic --auto # test microphones and pick working one
 wisper status     # show current setup
@@ -79,6 +81,7 @@ wisper open       # open local web app
 - `wisper polish on/off` to enable or disable auto-polish before paste
 - `wisper polish "text"` to rewrite text manually with Groq polish mode
 - `wisper media on/off/status/volume/test` to control Windows audio ducking while recording
+- `wisper autostart on/off/status` to control startup listener without rerunning setup
 - `wisper shortcut` to set shortcut from a prompt
 - `wisper mic --auto` to record tiny test samples and pick the working microphone
 - Windows listener watches for newly connected/removed microphones and auto-switches to the strongest working input

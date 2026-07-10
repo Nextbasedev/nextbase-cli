@@ -4,7 +4,7 @@ import { startWebApp } from './server.js';
 import { openUrl } from './open.js';
 import { defaultShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
-import { enableAutostart, startListenerNow } from './autostart.js';
+import { disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
 import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
@@ -40,6 +40,9 @@ async function main() {
       break;
     case 'media':
       await mediaCommand(args);
+      break;
+    case 'autostart':
+      await autostartCommand(args);
       break;
     case 'shortcut':
       await setShortcut();
@@ -113,6 +116,7 @@ Commands:
   wisper polish on/off    Enable or disable auto polish
   wisper polish "text"   Rewrite text with Groq polish mode
   wisper media on/off     Lower system volume while recording
+  wisper autostart on/off Enable or disable startup listener
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper mic              Pick microphone device
@@ -297,6 +301,32 @@ async function polishCommand(args: string[]) {
 
   const rewritten = await rewriteText(text, await loadConfig(), mode);
   console.log(rewritten);
+}
+
+async function autostartCommand(args: string[]) {
+  const action = args[0]?.toLowerCase() || 'status';
+
+  if (action === 'status') {
+    const config = await loadConfig();
+    console.log(`Autostart: ${config.autostart ? 'enabled' : 'disabled'}`);
+    return;
+  }
+
+  if (['on', 'enable', 'enabled'].includes(action)) {
+    const result = await enableAutostart();
+    await updateConfig({ autostart: result.enabled });
+    console.log(result.message);
+    return;
+  }
+
+  if (['off', 'disable', 'disabled'].includes(action)) {
+    const result = await disableAutostart();
+    await updateConfig({ autostart: false });
+    console.log(result.message);
+    return;
+  }
+
+  throw new Error('Usage: wisper autostart on/off/status');
 }
 
 async function configureMediaDucking(prompt = createPrompt()) {
