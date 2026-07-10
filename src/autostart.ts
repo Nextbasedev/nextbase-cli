@@ -18,6 +18,9 @@ function quote(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
 }
 
+function windowsStartupDir() {
+  return join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+}
 
 export function startListenerNow(): AutostartResult {
   const command = currentCliCommand();
@@ -73,9 +76,7 @@ WshShell.Run ${quote(launchCommand)}, 0, False
     spawnSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
     spawnSync('schtasks.exe', ['/Delete', '/TN', 'WisperCLI', '/F'], { stdio: 'ignore', windowsHide: true });
 
-    // Use PowerShell ScheduledTasks API. It handles quoting better than schtasks /TR.
-    // This starts after interactive login, hidden. A real Windows Service would not work
-    // for global hotkeys because services do not run in the user's desktop session.
+    // Preferred: logon Scheduled Task. Some Windows accounts/policies reject this with 0x80070005.
     const script = `
 $ErrorActionPreference = 'Stop'
 $Action = New-ScheduledTaskAction -Execute 'wscript.exe' -Argument '//B "${file.replaceAll("'", "''")}"'
@@ -92,8 +93,19 @@ Register-ScheduledTask -TaskName 'WisperCLI' -Action $Action -Trigger $Trigger -
       return { enabled: true, message: 'Autostart enabled as hidden Windows logon task.' };
     }
 
+    // Fallback: user Startup folder. This needs no admin/scheduled-task permission and stays hidden.
+    const startupDir = windowsStartupDir();
+    const startupFile = join(startupDir, 'WisperCLI.vbs');
+    await mkdir(startupDir, { recursive: true });
+    await writeFile(startupFile, `Set WshShell = CreateObject("WScript.Shell")
+WshShell.Run ${quote(launchCommand)}, 0, False
+`);
+
     const error = (result.stderr || result.stdout || '').trim();
-    return { enabled: false, message: `Could not enable Windows autostart task.${error ? ` ${error}` : ''}` };
+    return {
+      enabled: true,
+      message: `Autostart enabled via Windows Startup folder because Scheduled Task was blocked.${error ? ` Scheduled Task error: ${error}` : ''}`
+    };
   }
 
 
@@ -132,7 +144,8 @@ export async function disableAutostart(): Promise<AutostartResult> {
   if (process.platform === 'win32') {
     spawnSync('schtasks.exe', ['/Delete', '/TN', 'WisperCLI', '/F'], { stdio: 'ignore', windowsHide: true });
     spawnSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
-    return { enabled: false, message: 'Autostart disabled. Windows logon task removed.' };
+    await rm(join(windowsStartupDir(), 'WisperCLI.vbs'), { force: true }).catch(() => undefined);
+    return { enabled: false, message: 'Autostart disabled. Windows startup entries removed.' };
   }
 
   if (process.platform === 'linux') {
