@@ -70,7 +70,7 @@ WshShell.Run ${quote(launchCommand)}, 0, False
 `);
 
     // Remove the older Run-key startup entry if present. It can open a console on login.
-    spawnSync('reg', ['delete', 'HKCU\Software\Microsoft\Windows\CurrentVersion\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
+    spawnSync('reg', ['delete', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run', '/v', 'WisperCLI', '/f'], { stdio: 'ignore' });
 
     // Use a logon Scheduled Task instead of the Run key. This starts after interactive login,
     // hidden, and survives shutdown/restart more reliably. A true Windows Service would not work
