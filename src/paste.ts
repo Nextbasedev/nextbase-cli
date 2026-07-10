@@ -51,6 +51,29 @@ export function shutdownPasteHelper() {
   pasteHelper = undefined;
 }
 
+async function sendCopyShortcut() {
+  if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "c" using command down'], { stdio: 'ignore' });
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    const scriptPath = join(tmpdir(), `wisper-copy-${process.pid}.vbs`);
+    writeFileSync(scriptPath, 'Set WshShell = WScript.CreateObject("WScript.Shell")\nWshShell.SendKeys "^c"\n');
+    spawnSync('wscript.exe', ['//B', scriptPath], { stdio: 'ignore', windowsHide: true });
+    try { unlinkSync(scriptPath); } catch {}
+    return;
+  }
+
+  spawnSync('xdotool', ['key', 'ctrl+c'], { stdio: 'ignore' });
+}
+
+export async function copySelectedText() {
+  await sendCopyShortcut();
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  return (await clipboard.read()).trim();
+}
+
 export async function pasteIntoActiveApp(text: string) {
   await clipboard.write(text);
 

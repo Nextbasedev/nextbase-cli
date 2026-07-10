@@ -2,13 +2,13 @@
 import { loadHistory, saveTranscript } from './storage.js';
 import { startWebApp } from './server.js';
 import { openUrl } from './open.js';
-import { defaultShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
+import { defaultPolishShortcut, defaultShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
 import { disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
 import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
-import { pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
+import { copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { polishDictationIfEnabled, rewriteText, type RewriteMode } from './polish.js';
 import { restoreMediaBehavior, startMediaBehavior } from './media.js';
@@ -114,6 +114,7 @@ Commands:
   wisper update           Install latest version and run only missing setup prompts
   wisper provider         Pick provider from a menu
   wisper polish on/off    Enable or disable auto polish
+  wisper polish shortcut  Set selected-text polish shortcut
   wisper polish "text"   Rewrite text with Groq polish mode
   wisper media on/off     Lower system volume while recording
   wisper autostart on/off Enable or disable startup listener
@@ -164,6 +165,14 @@ async function setup(updateMode = false) {
       await configureAutoPolish(prompt, true);
     } else if (updateMode) {
       console.log(`Auto polish: ${polishConfig.autoPolish ? 'enabled' : 'disabled'}. Keeping existing setup.`);
+    }
+
+    const polishShortcutConfig = await loadConfig();
+    if (!polishShortcutConfig.polishShortcut) {
+      await updateConfig({ polishShortcut: defaultPolishShortcut });
+      console.log(`Polish shortcut set to ${defaultPolishShortcut}.`);
+    } else if (updateMode) {
+      console.log(`Polish shortcut already configured: ${polishShortcutConfig.polishShortcut}`);
     }
 
     const mediaConfig = await loadConfig();
@@ -270,6 +279,7 @@ async function polishCommand(args: string[]) {
     const config = await loadConfig();
     console.log(`Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
     console.log(`Polish model: ${config.polishModel || 'llama-3.3-70b-versatile'}`);
+    console.log(`Polish shortcut: ${config.polishShortcut || defaultPolishShortcut}`);
     console.log(`Groq key: ${config.keys?.groq ? 'saved' : 'not set'}`);
     return;
   }
@@ -289,6 +299,20 @@ async function polishCommand(args: string[]) {
   if (['off', 'disable', 'disabled'].includes(action)) {
     await updateConfig({ autoPolish: false });
     console.log('Auto polish disabled.');
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  if (action === 'shortcut') {
+    const prompt = createPrompt();
+    try {
+      const shortcut = await captureShortcut((await loadConfig()).polishShortcut || defaultPolishShortcut);
+      await updateConfig({ polishShortcut: shortcut });
+      console.log(`Polish shortcut set to ${shortcut}.`);
+    } finally {
+      prompt.close();
+    }
     await stopListener();
     await startListenerAndReport();
     return;
@@ -484,6 +508,7 @@ async function showStatus() {
   console.log(`  Microphone: ${preferredInputDevice(config.audioDevice)}`);
   console.log(`  API key: ${config.provider && config.keys?.[config.provider] ? 'saved' : 'not set'}`);
   console.log(`  Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
+  console.log(`  Polish shortcut: ${config.polishShortcut || defaultPolishShortcut}`);
   console.log(`  Audio ducking: ${config.audioDucking === false ? 'disabled' : `enabled at ${config.audioDuckingVolume ?? 35}%`}`);
   console.log(`  Autostart: ${config.autostart ? 'enabled' : 'not enabled'}`);
 }
@@ -507,9 +532,16 @@ async function listen() {
   const stopShortcut = listenForShortcut(shortcut, (event) => {
     void handleShortcutEvent(event).catch((error) => log(`Error: ${error.message}`));
   });
+  const polishShortcut = config.polishShortcut || defaultPolishShortcut;
+  const stopPolishShortcut = polishShortcut && polishShortcut !== shortcut
+    ? listenForShortcut(polishShortcut, (event) => {
+        if (event === 'up') return;
+        void handlePolishShortcut().catch((error) => log(`Polish error: ${error.message}`));
+      })
+    : undefined;
   const keepAlive = setInterval(() => undefined, 60_000);
   const stopDeviceWatcher = startInputDeviceWatcher();
-  process.once('exit', () => { clearInterval(keepAlive); stopDeviceWatcher?.(); stopShortcut?.(); });
+  process.once('exit', () => { clearInterval(keepAlive); stopDeviceWatcher?.(); stopPolishShortcut?.(); stopShortcut?.(); });
 
   if (process.platform === 'darwin') {
     await log('Mac note: if shortcut does not trigger, allow Terminal/iTerm in System Settings → Privacy & Security → Accessibility.');
@@ -537,6 +569,23 @@ async function listen() {
     }, 5_000);
 
     return () => clearInterval(interval);
+  }
+
+  async function handlePolishShortcut() {
+    if (busy) return;
+    busy = true;
+    try {
+      await log('Polishing selected text...');
+      const selected = await copySelectedText();
+      if (!selected) throw new Error('Select text first, then press the polish shortcut.');
+      const latestConfig = await loadConfig();
+      const polished = await rewriteText(selected, latestConfig, 'polish');
+      await pasteIntoActiveApp(polished);
+      await saveTranscript(polished, 'polish-shortcut');
+      await log('Selected text polished and replaced.');
+    } finally {
+      busy = false;
+    }
   }
 
   async function handleShortcutEvent(event?: 'down' | 'up') {
