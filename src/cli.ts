@@ -4,7 +4,7 @@ import { startWebApp } from './server.js';
 import { openUrl } from './open.js';
 import { defaultPolishShortcut, defaultShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
-import { disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
+import { autostartStatus, disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
 import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
@@ -331,8 +331,9 @@ async function autostartCommand(args: string[]) {
   const action = args[0]?.toLowerCase() || 'status';
 
   if (action === 'status') {
-    const config = await loadConfig();
-    console.log(`Autostart: ${config.autostart ? 'enabled' : 'disabled'}`);
+    const status = await autostartStatus();
+    await updateConfig({ autostart: status.enabled });
+    console.log(status.message);
     return;
   }
 

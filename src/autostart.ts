@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, rm, writeFile } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -16,6 +16,10 @@ function currentCliCommand() {
 
 function quote(value: string) {
   return `"${value.replaceAll('"', '\\"')}"`;
+}
+
+function vbsQuote(value: string) {
+  return `"${value.replaceAll('"', '""')}"`;
 }
 
 function windowsStartupDir() {
@@ -69,7 +73,7 @@ export async function enableAutostart(): Promise<AutostartResult> {
     const launchCommand = [quote(command.executable), ...command.args.map(quote)].join(' ');
     await mkdir(dir, { recursive: true });
     await writeFile(file, `Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run ${quote(launchCommand)}, 0, False
+WshShell.Run ${vbsQuote(launchCommand)}, 0, False
 `);
 
     // Remove older startup entries if present.
@@ -98,7 +102,7 @@ Register-ScheduledTask -TaskName 'WisperCLI' -Action $Action -Trigger $Trigger -
     const startupFile = join(startupDir, 'WisperCLI.vbs');
     await mkdir(startupDir, { recursive: true });
     await writeFile(startupFile, `Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run ${quote(launchCommand)}, 0, False
+WshShell.Run ${vbsQuote(launchCommand)}, 0, False
 `);
 
     const error = (result.stderr || result.stdout || '').trim();
@@ -153,6 +157,43 @@ export async function disableAutostart(): Promise<AutostartResult> {
     await rm(join(homedir(), '.config', 'systemd', 'user', 'wisper-cli.service'), { force: true }).catch(() => undefined);
     spawnSync('systemctl', ['--user', 'daemon-reload'], { stdio: 'ignore' });
     return { enabled: false, message: 'Autostart disabled. systemd user service removed.' };
+  }
+
+  return { enabled: false, message: `Autostart is not supported yet on ${process.platform}.` };
+}
+
+async function exists(path: string) {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function autostartStatus(): Promise<AutostartResult> {
+  if (process.platform === 'darwin') {
+    const file = join(homedir(), 'Library', 'LaunchAgents', 'com.wisper.cli.plist');
+    return (await exists(file))
+      ? { enabled: true, message: `Autostart enabled: LaunchAgent exists at ${file}.` }
+      : { enabled: false, message: 'Autostart disabled: LaunchAgent not found.' };
+  }
+
+  if (process.platform === 'win32') {
+    const task = spawnSync('schtasks.exe', ['/Query', '/TN', 'WisperCLI'], { stdio: 'ignore', windowsHide: true });
+    const startupFile = join(windowsStartupDir(), 'WisperCLI.vbs');
+    const startupExists = await exists(startupFile);
+    if (task.status === 0 && startupExists) return { enabled: true, message: `Autostart enabled: Scheduled Task and Startup file exist (${startupFile}).` };
+    if (task.status === 0) return { enabled: true, message: 'Autostart enabled: Windows Scheduled Task exists.' };
+    if (startupExists) return { enabled: true, message: `Autostart enabled: Startup file exists at ${startupFile}.` };
+    return { enabled: false, message: 'Autostart disabled: no Scheduled Task or Startup file found.' };
+  }
+
+  if (process.platform === 'linux') {
+    const service = join(homedir(), '.config', 'systemd', 'user', 'wisper-cli.service');
+    return (await exists(service))
+      ? { enabled: true, message: `Autostart enabled: systemd user service exists at ${service}.` }
+      : { enabled: false, message: 'Autostart disabled: systemd user service not found.' };
   }
 
   return { enabled: false, message: `Autostart is not supported yet on ${process.platform}.` };
