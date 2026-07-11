@@ -95,6 +95,13 @@ try {
   $FinalCliPath = Join-Path $InstallDir "dist\cli.js"
   Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$FinalCliPath`" %*`r`n" -Encoding ASCII
 
+  try {
+    $Commit = Invoke-RestMethod -Uri "https://api.github.com/repos/dix105/wisper-cli/commits/master?x=$(Get-Random)" -Headers @{ "User-Agent" = "wisper-cli-installer" }
+    if ($Commit.sha) { Set-Content -Path (Join-Path $InstallRoot "installed-sha") -Value $Commit.sha }
+  } catch {
+    Write-Host "Could not record installed version marker. Auto-update will initialize it on first check."
+  }
+
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathParts = @()
   if ($UserPath) { $PathParts = $UserPath -split ";" }

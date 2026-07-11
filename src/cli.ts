@@ -17,6 +17,7 @@ import { autoDetectInputDevice, listInputDevices, preferredInputDevice } from '.
 import { log, readLogs } from './log.js';
 import { clearListenerPid, stopListener, writeListenerPid } from './process-state.js';
 import { spawn } from 'node:child_process';
+import { checkForUpdate, startAutoUpdater } from './updater.js';
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -43,6 +44,10 @@ async function main() {
       break;
     case 'autostart':
       await autostartCommand(args);
+      break;
+    case 'autoupdate':
+    case 'auto-update':
+      await autoUpdateCommand(args);
       break;
     case 'shortcut':
       await setShortcut();
@@ -118,6 +123,7 @@ Commands:
   wisper polish "text"   Rewrite text with Groq polish mode
   wisper media on/off     Lower system volume while recording
   wisper autostart on/off Enable or disable startup listener
+  wisper autoupdate on/off/check Control background auto-updates
   wisper shortcut         Set shortcut from a prompt
   wisper status           Show current setup
   wisper mic              Pick microphone device
@@ -180,6 +186,14 @@ async function setup(updateMode = false) {
       await configureMediaDucking(prompt);
     } else if (updateMode) {
       console.log(`Audio ducking: ${mediaConfig.audioDucking ? `enabled at ${mediaConfig.audioDuckingVolume ?? 35}%` : 'disabled'}. Keeping existing setup.`);
+    }
+
+    const updateConfigState = await loadConfig();
+    if (updateConfigState.autoUpdate === undefined) {
+      await updateConfig({ autoUpdate: true, autoUpdateIntervalMinutes: 180 });
+      console.log('Auto update enabled. Wisper will update itself in the background when new versions are released.');
+    } else if (updateMode) {
+      console.log(`Auto update: ${updateConfigState.autoUpdate ? 'enabled' : 'disabled'}. Keeping existing setup.`);
     }
 
     const current = await loadConfig();
@@ -354,6 +368,45 @@ async function autostartCommand(args: string[]) {
   throw new Error('Usage: wisper autostart on/off/status');
 }
 
+async function autoUpdateCommand(args: string[]) {
+  const action = args[0]?.toLowerCase() || 'status';
+
+  if (action === 'status') {
+    const config = await loadConfig();
+    console.log(`Auto update: ${config.autoUpdate === false ? 'disabled' : 'enabled'}`);
+    console.log(`Check interval: ${config.autoUpdateIntervalMinutes ?? 180} minutes`);
+    return;
+  }
+
+  if (['on', 'enable', 'enabled'].includes(action)) {
+    const minutes = Number(args[1] || 180);
+    const interval = Number.isFinite(minutes) ? Math.max(15, minutes) : 180;
+    await updateConfig({ autoUpdate: true, autoUpdateIntervalMinutes: interval });
+    console.log(`Auto update enabled. Check interval: ${interval} minutes.`);
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  if (['off', 'disable', 'disabled'].includes(action)) {
+    await updateConfig({ autoUpdate: false });
+    console.log('Auto update disabled.');
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  if (action === 'check') {
+    const apply = args.includes('--apply');
+    const result = await checkForUpdate({ apply, restart: apply });
+    console.log(result.message);
+    if (result.updated) process.exit(0);
+    return;
+  }
+
+  throw new Error('Usage: wisper autoupdate on/off/status/check [--apply]');
+}
+
 async function configureMediaDucking(prompt = createPrompt()) {
   try {
     const wantsDucking = await prompt.confirm('Lower system/media volume while recording?', true);
@@ -512,6 +565,7 @@ async function showStatus() {
   console.log(`  Polish shortcut: ${config.polishShortcut || defaultPolishShortcut}`);
   console.log(`  Audio ducking: ${config.audioDucking === false ? 'disabled' : `enabled at ${config.audioDuckingVolume ?? 35}%`}`);
   console.log(`  Autostart: ${config.autostart ? 'enabled' : 'not enabled'}`);
+  console.log(`  Auto update: ${config.autoUpdate === false ? 'disabled' : 'enabled'}`);
 }
 
 async function listen() {
@@ -528,6 +582,7 @@ async function listen() {
   await log(`Provider: ${config.provider || 'not set'}`);
   await log(`Model: ${config.model || 'not set'}`);
   await log(`Shortcut: ${shortcut}`);
+  await log(`Auto update: ${config.autoUpdate === false ? 'disabled' : `enabled every ${config.autoUpdateIntervalMinutes ?? 180}m`}`);
   await log('Press shortcut once to start recording, again to stop. Press Ctrl+C to stop listener.');
 
   const stopShortcut = listenForShortcut(shortcut, (event) => {
@@ -542,7 +597,8 @@ async function listen() {
     : undefined;
   const keepAlive = setInterval(() => undefined, 60_000);
   const stopDeviceWatcher = startInputDeviceWatcher();
-  process.once('exit', () => { clearInterval(keepAlive); stopDeviceWatcher?.(); stopPolishShortcut?.(); stopShortcut?.(); });
+  const stopAutoUpdater = startAutoUpdater(config);
+  process.once('exit', () => { clearInterval(keepAlive); stopAutoUpdater?.(); stopDeviceWatcher?.(); stopPolishShortcut?.(); stopShortcut?.(); });
 
   if (process.platform === 'darwin') {
     await log('Mac note: if shortcut does not trigger, allow Terminal/iTerm in System Settings → Privacy & Security → Accessibility.');

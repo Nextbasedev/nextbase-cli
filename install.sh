@@ -64,6 +64,10 @@ chmod +x "$INSTALL_DIR/dist/cli.js"
 
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"
 
+if command -v node >/dev/null 2>&1; then
+  node -e "fetch('https://api.github.com/repos/dix105/wisper-cli/commits/master?x=' + Date.now(), { headers: { 'user-agent': 'wisper-cli-installer' } }).then(r => r.json()).then(j => j.sha && require('fs').writeFileSync(require('path').join(require('os').homedir(), '.wisper-cli', 'installed-sha'), j.sha)).catch(() => {})" || true
+fi
+
 case ":$PATH:" in
   *":$BIN_DIR:"*)
     PATH_OK=1
