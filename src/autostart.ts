@@ -105,10 +105,13 @@ Register-ScheduledTask -TaskName 'WisperCLI' -Action $Action -Trigger $Trigger -
 WshShell.Run ${vbsQuote(launchCommand)}, 0, False
 `);
 
-    const error = (result.stderr || result.stdout || '').trim();
+    const schedulerOutput = `${result.stderr || ''}\n${result.stdout || ''}`;
+    const blocked = schedulerOutput.includes('Access is denied') || schedulerOutput.includes('0x80070005');
     return {
       enabled: true,
-      message: `Autostart enabled via Windows Startup folder because Scheduled Task was blocked.${error ? ` Scheduled Task error: ${error}` : ''}`
+      message: blocked
+        ? 'Autostart enabled via Windows Startup folder. Scheduled Task was blocked by Windows permissions, so Wisper used the no-admin fallback.'
+        : 'Autostart enabled via Windows Startup folder fallback.'
     };
   }
 
