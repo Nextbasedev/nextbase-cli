@@ -50,7 +50,10 @@ async function main() {
       await autoUpdateCommand(args);
       break;
     case 'shortcut':
-      await setShortcut();
+      await setShortcut(false, createPrompt(), args.join('+'));
+      break;
+    case 'shortcuts':
+      await showShortcuts();
       break;
     case 'status':
       await showStatus();
@@ -124,7 +127,8 @@ Commands:
   wisper media on/off     Lower system volume while recording
   wisper autostart on/off Enable or disable startup listener
   wisper autoupdate on/off/check Control background auto-updates
-  wisper shortcut         Set shortcut from a prompt
+  wisper shortcut [key]   Set dictation shortcut, e.g. F15 or Ctrl+Alt+Space
+  wisper shortcuts        Show shortcut status and supported keys
   wisper status           Show current setup
   wisper mic              Pick microphone device
   wisper mic --auto       Test microphones and pick working one
@@ -319,9 +323,10 @@ async function polishCommand(args: string[]) {
   }
 
   if (action === 'shortcut') {
+    const directShortcut = args.slice(1).join('+').trim();
     const prompt = createPrompt();
     try {
-      const shortcut = await captureShortcut((await loadConfig()).polishShortcut || defaultPolishShortcut);
+      const shortcut = directShortcut || await captureShortcut((await loadConfig()).polishShortcut || defaultPolishShortcut);
       await updateConfig({ polishShortcut: shortcut });
       console.log(`Polish shortcut set to ${shortcut}.`);
     } finally {
@@ -468,6 +473,24 @@ async function mediaCommand(args: string[]) {
   throw new Error('Usage: wisper media on/off/status/volume/test');
 }
 
+async function showShortcuts() {
+  const config = await loadConfig();
+  console.log('Shortcut setup:');
+  console.log(`  Dictation: ${config.shortcut || defaultShortcut}`);
+  console.log(`  Polish selected text: ${config.polishShortcut || defaultPolishShortcut}`);
+  console.log('');
+  console.log('Supported keys:');
+  console.log('  Windows: A-Z, 0-9, Space, Tab, Enter, Esc, F1-F24');
+  console.log('  macOS: A-Z, 0-9, Space, Tab, Enter, Esc, F1-F20');
+  console.log('');
+  console.log('Examples:');
+  console.log('  wisper shortcut F15');
+  console.log('  wisper shortcut Ctrl+Alt+Space');
+  console.log('  wisper polish shortcut F16');
+  console.log('');
+  console.log('Note: F13-F24 often do not capture inside terminals. Type them directly with the commands above.');
+}
+
 async function selectProvider(prompt = createPrompt()) {
   try {
     const provider = await prompt.choose('Select provider:', providers) as Provider;
@@ -536,20 +559,22 @@ async function selectMic(auto = false) {
   }
 }
 
-async function setShortcut(allowDefault = false, prompt = createPrompt()) {
+async function setShortcut(allowDefault = false, prompt = createPrompt(), directShortcut = '') {
   try {
-    const typed = await prompt.confirm('Capture shortcut by pressing keys now?', true);
-    const shortcut = typed
-      ? await captureShortcut(defaultShortcut)
-      : (await prompt.ask(`Shortcut${allowDefault ? ` [${defaultShortcut}]` : ''}: `) || defaultShortcut);
+    const shortcut = directShortcut.trim() || await (async () => {
+      const typed = await prompt.confirm('Capture shortcut by pressing keys now?', true);
+      return typed
+        ? await captureShortcut(defaultShortcut)
+        : (await prompt.ask(`Shortcut${allowDefault ? ` [${defaultShortcut}]` : ''}: `) || defaultShortcut);
+    })();
     await updateConfig({ shortcut });
     console.log(`Shortcut set to ${shortcut}.`);
-    if (arguments.length < 2) {
+    if (arguments.length < 2 || directShortcut) {
       await stopListener();
       await startListenerAndReport();
     }
   } finally {
-    if (arguments.length < 2) prompt.close();
+    if (arguments.length < 2 || directShortcut) prompt.close();
   }
 }
 

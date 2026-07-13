@@ -65,7 +65,8 @@ wisper autostart off # disable startup listener
 wisper autoupdate status # check background auto-update setting
 wisper autoupdate check # check GitHub for new version
 wisper autoupdate check --apply # update now if available
-wisper shortcut   # set shortcut
+wisper shortcut F15 # set dictation shortcut directly
+wisper shortcuts # show supported shortcut keys
 wisper mic --auto # test microphones and pick working one
 wisper status     # show current setup
 wisper update     # install latest and only ask missing setup prompts
@@ -88,7 +89,8 @@ wisper open       # open local web app
 - `wisper media on/off/status/volume/test` to control Windows audio ducking while recording
 - `wisper autostart on/off/status` to control startup listener without rerunning setup
 - `wisper autoupdate on/off/status/check` to keep the background listener updated automatically
-- `wisper shortcut` to set shortcut from a prompt
+- `wisper shortcut [key]` to set shortcut from a prompt or directly, e.g. `wisper shortcut F15`
+- `wisper shortcuts` to show current shortcuts and supported keys
 - `wisper mic --auto` to record tiny test samples and pick the working microphone
 - Windows listener watches for newly connected/removed microphones and auto-switches to the strongest working input
 - `wisper status` to show current setup
@@ -97,6 +99,7 @@ wisper open       # open local web app
 - automatic startup after `wisper setup`
 - optional auto-polish mode powered by Groq chat completions (`llama-3.3-70b-versatile`)
 - selected-text polish shortcut: select text anywhere, press `CommandOrControl+Shift+P`, and Wisper replaces it with polished text
+- direct F-key setup for terminals that cannot capture F13-F24: `wisper shortcut F15`, `wisper polish shortcut F16`
 - background auto-update: listener checks GitHub periodically, installs new builds silently, and restarts itself
 - optional Windows audio ducking: lower system/media volume while holding shortcut, then restore after release
 - `wisper history` to print transcript history

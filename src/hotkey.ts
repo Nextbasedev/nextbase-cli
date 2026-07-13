@@ -56,8 +56,11 @@ function windowsVirtualKey(key: string) {
   if (key === 'ENTER' || key === 'RETURN') return 0x0d;
   if (key === 'ESC' || key === 'ESCAPE') return 0x1b;
   const f = key.match(/^F(\d{1,2})$/);
-  if (f) return 0x70 + Number(f[1]) - 1;
-  throw new Error(`Unsupported Windows shortcut key: ${key}`);
+  if (f) {
+    const n = Number(f[1]);
+    if (n >= 1 && n <= 24) return 0x70 + n - 1;
+  }
+  throw new Error(`Unsupported Windows shortcut key: ${key}. Use A-Z, 0-9, Space, Tab, Enter, Esc, or F1-F24.`);
 }
 
 function listenForWindowsHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
@@ -145,11 +148,11 @@ function macKeyCode(key: string) {
     O: 31, U: 32, I: 34, P: 35, L: 37, J: 38, K: 40, N: 45, M: 46
   };
   const digits: Record<string, number> = { '1': 18, '2': 19, '3': 20, '4': 21, '6': 22, '5': 23, '9': 25, '7': 26, '8': 28, '0': 29 };
-  const specials: Record<string, number> = { SPACE: 49, TAB: 48, ENTER: 36, RETURN: 36, ESC: 53, ESCAPE: 53, F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111 };
+  const specials: Record<string, number> = { SPACE: 49, TAB: 48, ENTER: 36, RETURN: 36, ESC: 53, ESCAPE: 53, F1: 122, F2: 120, F3: 99, F4: 118, F5: 96, F6: 97, F7: 98, F8: 100, F9: 101, F10: 109, F11: 103, F12: 111, F13: 105, F14: 107, F15: 113, F16: 106, F17: 64, F18: 79, F19: 80, F20: 90 };
   if (letters[key] !== undefined) return letters[key];
   if (digits[key] !== undefined) return digits[key];
   if (specials[key] !== undefined) return specials[key];
-  throw new Error(`Unsupported macOS shortcut key: ${key}`);
+  throw new Error(`Unsupported macOS shortcut key: ${key}. Use A-Z, 0-9, Space, Tab, Enter, Esc, or F1-F20.`);
 }
 
 function listenForMacHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {

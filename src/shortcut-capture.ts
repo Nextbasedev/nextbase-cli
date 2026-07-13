@@ -23,7 +23,8 @@ function displayKey(name?: string) {
 }
 
 function isStandaloneKey(key: string) {
-  return /^F\d{1,2}$/i.test(key);
+  const match = key.match(/^F(\d{1,2})$/i);
+  return !!match && Number(match[1]) >= 1 && Number(match[1]) <= 24;
 }
 
 function preview(modifiers: Set<ModifierLabel>) {
@@ -43,6 +44,7 @@ export async function captureShortcut(defaultShortcut: string): Promise<string> 
 
   console.log(`Press your shortcut now. Example: ${defaultShortcut}`);
   console.log('Hold Ctrl/Alt/Shift, then press final key. Esc cancels.');
+  console.log('Tip: for F13-F24, if capture does not detect the key, type it directly: wisper shortcut F15');
   preview(modifiers);
 
   return await new Promise<string>((resolve) => {
