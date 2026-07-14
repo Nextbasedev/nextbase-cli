@@ -7,7 +7,7 @@
 ### Windows PowerShell
 
 ```powershell
-iwr -useb https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.ps1 | iex
+iwr -useb https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.ps1 | iex
 ```
 
 The installer also tries to install SoX automatically with `winget` if it is missing.
@@ -21,7 +21,7 @@ wisper setup
 ### macOS / Linux
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.sh | bash
 ```
 
 Then:

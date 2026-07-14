@@ -237,11 +237,11 @@ async function update() {
   const command = process.platform === 'win32'
     ? {
         executable: 'powershell.exe',
-        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `iwr -useb "https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.ps1?x=${cacheBust}" | iex; wisper setup --update`]
+        args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `iwr -useb "https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.ps1?x=${cacheBust}" | iex; wisper setup --update`]
       }
     : {
         executable: 'bash',
-        args: ['-lc', `curl -fsSL "https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.sh?x=${cacheBust}" | bash && wisper setup --update`]
+        args: ['-lc', `curl -fsSL "https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.sh?x=${cacheBust}" | bash && wisper setup --update`]
       };
 
   await new Promise<void>((resolve, reject) => {

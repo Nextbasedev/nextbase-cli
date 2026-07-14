@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$RepoZip = "https://github.com/dix105/nextbase-cli/archive/refs/heads/master.zip"
+$RepoZip = "https://github.com/Nextbasedev/nextbase-cli/archive/refs/heads/master.zip"
 $InstallRoot = if ($env:WISPER_INSTALL_ROOT) { $env:WISPER_INSTALL_ROOT } else { Join-Path $env:USERPROFILE ".wisper-cli" }
 $InstallDir = if ($env:WISPER_INSTALL_DIR) { $env:WISPER_INSTALL_DIR } else { Join-Path $InstallRoot "app" }
 $BinDir = if ($env:WISPER_BIN_DIR) { $env:WISPER_BIN_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }
@@ -96,7 +96,7 @@ try {
   Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$FinalCliPath`" %*`r`n" -Encoding ASCII
 
   try {
-    $Commit = Invoke-RestMethod -Uri "https://api.github.com/repos/dix105/nextbase-cli/commits/master?x=$(Get-Random)" -Headers @{ "User-Agent" = "wisper-cli-installer" }
+    $Commit = Invoke-RestMethod -Uri "https://api.github.com/repos/Nextbasedev/nextbase-cli/commits/master?x=$(Get-Random)" -Headers @{ "User-Agent" = "wisper-cli-installer" }
     if ($Commit.sha) { Set-Content -Path (Join-Path $InstallRoot "installed-sha") -Value $Commit.sha }
   } catch {
     Write-Host "Could not record installed version marker. Auto-update will initialize it on first check."

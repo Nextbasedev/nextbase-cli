@@ -6,7 +6,7 @@ import { homedir } from 'node:os';
 import type { Config } from './config.js';
 import { log } from './log.js';
 
-const repoApiUrl = 'https://api.github.com/repos/dix105/nextbase-cli/commits/master';
+const repoApiUrl = 'https://api.github.com/repos/Nextbasedev/nextbase-cli/commits/master';
 const stateDir = join(homedir(), '.wisper-cli');
 const installedShaFile = join(stateDir, 'installed-sha');
 
@@ -44,14 +44,14 @@ function cliPath() {
 
 function runInstaller() {
   if (process.platform === 'win32') {
-    const script = `iwr -useb "https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.ps1?x=$(Get-Random)" | iex`;
+    const script = `iwr -useb "https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.ps1?x=$(Get-Random)" | iex`;
     return spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
       encoding: 'utf8',
       windowsHide: true
     });
   }
 
-  const script = `curl -fsSL "https://raw.githubusercontent.com/dix105/nextbase-cli/master/install.sh?x=$(date +%s)" | bash`;
+  const script = `curl -fsSL "https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/install.sh?x=$(date +%s)" | bash`;
   return spawnSync('bash', ['-lc', script], { encoding: 'utf8' });
 }
 

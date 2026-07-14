@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_TARBALL="https://github.com/dix105/nextbase-cli/archive/refs/heads/master.tar.gz"
+REPO_TARBALL="https://github.com/Nextbasedev/nextbase-cli/archive/refs/heads/master.tar.gz"
 INSTALL_DIR="${WISPER_INSTALL_DIR:-$HOME/.wisper-cli/app}"
 BIN_DIR="${WISPER_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/wisper"
@@ -65,7 +65,7 @@ chmod +x "$INSTALL_DIR/dist/cli.js"
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"
 
 if command -v node >/dev/null 2>&1; then
-  node -e "fetch('https://api.github.com/repos/dix105/nextbase-cli/commits/master?x=' + Date.now(), { headers: { 'user-agent': 'wisper-cli-installer' } }).then(r => r.json()).then(j => j.sha && require('fs').writeFileSync(require('path').join(require('os').homedir(), '.wisper-cli', 'installed-sha'), j.sha)).catch(() => {})" || true
+  node -e "fetch('https://api.github.com/repos/Nextbasedev/nextbase-cli/commits/master?x=' + Date.now(), { headers: { 'user-agent': 'wisper-cli-installer' } }).then(r => r.json()).then(j => j.sha && require('fs').writeFileSync(require('path').join(require('os').homedir(), '.wisper-cli', 'installed-sha'), j.sha)).catch(() => {})" || true
 fi
 
 case ":$PATH:" in
