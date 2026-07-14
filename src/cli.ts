@@ -357,9 +357,17 @@ async function autostartCommand(args: string[]) {
   }
 
   if (['on', 'enable', 'enabled'].includes(action)) {
+    // A listener launched with `wisper listen` belongs to the Terminal session.
+    // Stop it before enabling the OS-managed background launcher.
+    await stopListener();
     const result = await enableAutostart();
     await updateConfig({ autostart: result.enabled });
     console.log(result.message);
+    if (result.enabled && process.platform === 'darwin') {
+      console.log('Wisper is now managed by macOS LaunchAgent. You can close Terminal. Check it with: wisper logs');
+    } else if (result.enabled) {
+      await startListenerAndReport();
+    }
     return;
   }
 
