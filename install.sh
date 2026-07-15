@@ -77,16 +77,28 @@ case ":$PATH:" in
     ;;
 esac
 
+# Make the command available in future Terminal sessions too. macOS uses zsh by
+# default; use bash profile files on Linux/bash shells. Keep this idempotent.
+PATH_EXPORT="export PATH=\"$BIN_DIR:\$PATH\""
+if [ "$PATH_OK" = "0" ]; then
+  if [ "${SHELL##*/}" = "zsh" ]; then
+    PROFILE="${ZDOTDIR:-$HOME}/.zshrc"
+  else
+    PROFILE="$HOME/.bashrc"
+  fi
+  touch "$PROFILE"
+  if ! grep -Fqx "$PATH_EXPORT" "$PROFILE"; then
+    printf '\n# Nextbase CLI / Wisper\n%s\n' "$PATH_EXPORT" >> "$PROFILE"
+  fi
+  export PATH="$BIN_DIR:$PATH"
+fi
+
 echo ""
 echo "Wisper CLI installed."
 echo "Binary: $BIN_PATH"
 
 if [ "$PATH_OK" = "0" ]; then
-  echo ""
-  echo "Add this to your shell profile so 'wisper' works everywhere:"
-  echo "  export PATH=\"$BIN_DIR:\$PATH\""
-  echo ""
-  echo "For this terminal only, run:"
+  echo "Added $BIN_DIR to your shell profile. Open a new Terminal, or run:"
   echo "  export PATH=\"$BIN_DIR:\$PATH\""
 else
   echo "Run: wisper setup"
