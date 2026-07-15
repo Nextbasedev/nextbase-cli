@@ -6,7 +6,7 @@ import { defaultPolishShortcut, defaultShortcut, loadConfig, modelOptions, provi
 import { createPrompt } from './prompt.js';
 import { autostartStatus, disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
-import { cleanupOldRecordings, isRecording, startRecording, stopRecording } from './audio.js';
+import { cleanupOldRecordings, isRecording, recordingSignal, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
 import { copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
@@ -718,6 +718,11 @@ async function listen() {
       await restoreMediaBehavior().catch((error) => log(`Audio restore failed: ${error.message}`));
       const stopMs = Date.now() - stopStart;
       if (recording.durationMs < 500) throw new Error('Recording too short. Hold shortcut while speaking, then release.');
+      const signal = recordingSignal(recording.file);
+      await log(`Audio level: peak ${signal.maximum.toFixed(5)}, RMS ${signal.rms.toFixed(5)}.`);
+      if (signal.maximum < 0.0001 && signal.rms < 0.00005) {
+        throw new Error('Recording appears silent. On Mac, select the correct input in System Settings → Sound → Input, then ensure your Terminal/Node process has Microphone permission.');
+      }
 
       await log(`Recorded ${(recording.durationMs / 1000).toFixed(1)}s audio. WAV finalized in ${stopMs}ms.`);
 

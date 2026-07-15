@@ -1,5 +1,5 @@
 import { mkdir, readdir, rm, stat } from 'node:fs/promises';
-import { spawn, type ChildProcess } from 'node:child_process';
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { preferredInputDevice } from './devices.js';
@@ -28,7 +28,22 @@ function soxRecordArgs(file: string, audioDevice?: string) {
     return ['-t', 'waveaudio', preferredInputDevice(audioDevice), '-r', '16000', '-c', '1', '-b', '16', file];
   }
 
+  if (process.platform === 'darwin' && audioDevice && audioDevice !== 'default') {
+    return ['-t', 'coreaudio', audioDevice, '-r', '16000', '-c', '1', '-b', '16', file];
+  }
+
   return ['-d', '-r', '16000', '-c', '1', '-b', '16', file];
+}
+
+export function recordingSignal(file: string) {
+  const result = spawnSync(soxCommand(), [file, '-n', 'stat'], {
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`;
+  const maximum = Number(output.match(/Maximum amplitude:\s+([0-9.]+)/)?.[1] || 0);
+  const rms = Number(output.match(/RMS\s+amplitude:\s+([0-9.]+)/)?.[1] || 0);
+  return { maximum, rms };
 }
 
 export async function startRecording(audioDevice?: string): Promise<string> {
