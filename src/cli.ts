@@ -222,13 +222,11 @@ async function setup(updateMode = false) {
     prompt.close();
   }
   await showStatus();
-  if (updateMode) {
-    await stopListener();
-    await startListenerAndReport();
-    return;
-  }
-  console.log('\nStarting Wisper listener now...');
-  await listen();
+  // Setup must never keep the user's Terminal open. The listener owns its own
+  // detached process, so it survives closing Terminal and behaves like update/restart.
+  await stopListener();
+  console.log('\nStarting Wisper listener in the background...');
+  await startListenerAndReport();
 }
 
 async function update() {
