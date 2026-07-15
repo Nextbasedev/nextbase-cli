@@ -19,6 +19,18 @@ export function isRecording() {
   return Boolean(active);
 }
 
+export async function cancelRecording() {
+  if (!active) return;
+
+  const current = active;
+  active = undefined;
+  current.process.stdin?.end();
+  if (current.process.exitCode === null && !current.process.killed) {
+    current.process.kill(process.platform === 'win32' ? undefined : 'SIGINT');
+  }
+  await current.done.catch(() => undefined);
+}
+
 function soxCommand() {
   return process.platform === 'win32' ? 'sox.exe' : 'sox';
 }

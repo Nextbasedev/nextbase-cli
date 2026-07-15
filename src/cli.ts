@@ -6,7 +6,7 @@ import { defaultPolishShortcut, defaultShortcut, loadConfig, modelOptions, provi
 import { createPrompt } from './prompt.js';
 import { autostartStatus, disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
-import { cleanupOldRecordings, isRecording, recordingSignal, startRecording, stopRecording } from './audio.js';
+import { cancelRecording, cleanupOldRecordings, isRecording, recordingSignal, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
 import { copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
@@ -601,9 +601,9 @@ async function showStatus() {
 
 async function listen() {
   await writeListenerPid();
-  process.once('exit', () => { shutdownPasteHelper(); void clearListenerPid(); });
-  process.once('SIGINT', () => { shutdownPasteHelper(); void clearListenerPid(); process.exit(0); });
-  process.once('SIGTERM', () => { shutdownPasteHelper(); void clearListenerPid(); process.exit(0); });
+  process.once('exit', () => { void cancelRecording(); shutdownPasteHelper(); void clearListenerPid(); });
+  process.once('SIGINT', () => { void cancelRecording().finally(() => { shutdownPasteHelper(); void clearListenerPid(); process.exit(0); }); });
+  process.once('SIGTERM', () => { void cancelRecording().finally(() => { shutdownPasteHelper(); void clearListenerPid(); process.exit(0); }); });
 
   const config = await loadConfig();
   const shortcut = config.shortcut || defaultShortcut;
