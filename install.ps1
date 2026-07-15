@@ -49,9 +49,9 @@ try {
   Write-Host "Extracting..."
   Expand-Archive -Path $ZipPath -DestinationPath $TmpDir -Force
 
-  $SourceDir = Get-ChildItem -Path $TmpDir -Directory | Where-Object { $_.Name -like "wisper-cli-*" } | Select-Object -First 1
+  $SourceDir = Get-ChildItem -Path $TmpDir -Directory | Where-Object { $_.Name -like "nextbase-cli-*" } | Select-Object -First 1
   if (-not $SourceDir) {
-    throw "Could not find extracted wisper-cli source folder."
+    throw "Could not find extracted nextbase-cli source folder."
   }
 
   Move-Item $SourceDir.FullName $StageDir
