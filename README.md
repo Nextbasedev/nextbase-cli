@@ -59,6 +59,8 @@ Useful commands:
 wisper provider   # choose provider from menu + verify key
 wisper polish on  # enable auto polish before paste
 wisper polish shortcut # set selected-text polish shortcut
+wisper spell shortcut # set focused-input spelling-fix shortcut
+wisper spell shortcut CommandOrControl+Alt+S # set it directly
 wisper polish "rough dictated text" # polish text manually
 wisper media on 35 # lower system volume to 35% while recording
 wisper media test # test ducking/restoring system volume
@@ -87,6 +89,7 @@ wisper open       # open local web app
 - `wisper provider` to choose provider from a menu
 - `wisper polish on/off` to enable or disable auto-polish before paste
 - `wisper polish shortcut` to set the global selected-text polish shortcut
+- `wisper spell shortcut` to fix spelling in the entire focused text input without manual selection
 - `wisper polish "text"` to rewrite text manually with Groq polish mode
 - `wisper media on/off/status/volume/test` to control Windows audio ducking while recording
 - `wisper autostart on/off/status` to control startup listener without rerunning setup
@@ -102,6 +105,7 @@ wisper open       # open local web app
 - optional auto-polish mode powered by Groq chat completions (`llama-3.3-70b-versatile`)
 - selected-text polish shortcut: select text anywhere, press `CommandOrControl+Shift+P`, and Wisper replaces it with polished text
 - direct F-key setup for terminals that cannot capture F13-F24: `wisper shortcut F15`, `wisper polish shortcut F16`
+- focused-input spell fix: focus an editable field and press `CommandOrControl+Alt+S`; Wisper selects all, fixes spelling only, and replaces the field content
 - background auto-update: listener checks GitHub periodically, installs new builds silently, and restarts itself
 - optional Windows audio ducking: lower system/media volume while holding shortcut, then restore after release
 - `wisper history` to print transcript history

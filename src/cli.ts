@@ -2,13 +2,13 @@
 import { loadHistory, saveTranscript } from './storage.js';
 import { startWebApp } from './server.js';
 import { openUrl } from './open.js';
-import { defaultPolishShortcut, defaultShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
+import { defaultPolishShortcut, defaultShortcut, defaultSpellShortcut, loadConfig, modelOptions, providers, updateConfig, type ModelOption, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
 import { autostartStatus, disableAutostart, enableAutostart, startListenerNow } from './autostart.js';
 import { verifyProviderKey } from './verify.js';
 import { cancelRecording, cleanupOldRecordings, isRecording, recordingSignal, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
-import { copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
+import { copyFocusedInputText, copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { polishDictationIfEnabled, rewriteText, type RewriteMode } from './polish.js';
 import { restoreMediaBehavior, startMediaBehavior } from './media.js';
@@ -38,6 +38,9 @@ async function main() {
       break;
     case 'polish':
       await polishCommand(args);
+      break;
+    case 'spell':
+      await spellCommand(args);
       break;
     case 'media':
       await mediaCommand(args);
@@ -124,6 +127,7 @@ Commands:
   wisper polish on/off    Enable or disable auto polish
   wisper polish shortcut  Set selected-text polish shortcut
   wisper polish "text"   Rewrite text with Groq polish mode
+  wisper spell shortcut   Set focused-input spelling-fix shortcut
   wisper media on/off     Lower system volume while recording
   wisper autostart on/off Enable or disable startup listener
   wisper autoupdate on/off/check Control background auto-updates
@@ -183,6 +187,14 @@ async function setup(updateMode = false) {
       console.log(`Polish shortcut set to ${defaultPolishShortcut}.`);
     } else if (updateMode) {
       console.log(`Polish shortcut already configured: ${polishShortcutConfig.polishShortcut}`);
+    }
+
+    const spellShortcutConfig = await loadConfig();
+    if (!spellShortcutConfig.spellShortcut) {
+      await updateConfig({ spellShortcut: defaultSpellShortcut });
+      console.log(`Spell-fix shortcut set to ${defaultSpellShortcut}.`);
+    } else if (updateMode) {
+      console.log(`Spell-fix shortcut already configured: ${spellShortcutConfig.spellShortcut}`);
     }
 
     const mediaConfig = await loadConfig();
@@ -344,6 +356,36 @@ async function polishCommand(args: string[]) {
   console.log(rewritten);
 }
 
+async function spellCommand(args: string[]) {
+  const action = args[0]?.toLowerCase() || 'status';
+
+  if (action === 'status') {
+    const config = await loadConfig();
+    console.log(`Spell-fix shortcut: ${config.spellShortcut || defaultSpellShortcut}`);
+    console.log('Behavior: selects all text in the focused input, fixes spelling only, and replaces it.');
+    return;
+  }
+
+  if (action === 'shortcut') {
+    const directShortcut = args.slice(1).join('+').trim();
+    const prompt = createPrompt();
+    try {
+      const shortcut = directShortcut || await captureShortcut((await loadConfig()).spellShortcut || defaultSpellShortcut);
+      await updateConfig({ spellShortcut: shortcut });
+      console.log(`Spell-fix shortcut set to ${shortcut}.`);
+    } finally {
+      prompt.close();
+    }
+    await stopListener();
+    await startListenerAndReport();
+    return;
+  }
+
+  const text = args.join(' ').trim();
+  if (!text) throw new Error('Usage: wisper spell shortcut [key] or wisper spell "text"');
+  console.log(await rewriteText(text, await loadConfig(), 'spell'));
+}
+
 async function autostartCommand(args: string[]) {
   const action = args[0]?.toLowerCase() || 'status';
 
@@ -484,6 +526,7 @@ async function showShortcuts() {
   console.log('Shortcut setup:');
   console.log(`  Dictation: ${config.shortcut || defaultShortcut}`);
   console.log(`  Polish selected text: ${config.polishShortcut || defaultPolishShortcut}`);
+  console.log(`  Spell-fix focused input: ${config.spellShortcut || defaultSpellShortcut}`);
   console.log('');
   console.log('Supported keys:');
   console.log('  Windows: A-Z, 0-9, Space, Tab, Enter, Esc, F1-F24');
@@ -493,6 +536,7 @@ async function showShortcuts() {
   console.log('  wisper shortcut F15');
   console.log('  wisper shortcut Ctrl+Alt+Space');
   console.log('  wisper polish shortcut F16');
+  console.log('  wisper spell shortcut CommandOrControl+Alt+S');
   console.log('');
   console.log('Note: F13-F24 often do not capture inside terminals. Type them directly with the commands above.');
 }
@@ -594,6 +638,7 @@ async function showStatus() {
   console.log(`  API key: ${config.provider && config.keys?.[config.provider] ? 'saved' : 'not set'}`);
   console.log(`  Auto polish: ${config.autoPolish ? 'enabled' : 'disabled'}`);
   console.log(`  Polish shortcut: ${config.polishShortcut || defaultPolishShortcut}`);
+  console.log(`  Spell-fix shortcut: ${config.spellShortcut || defaultSpellShortcut}`);
   console.log(`  Audio ducking: ${config.audioDucking === false ? 'disabled' : `enabled at ${config.audioDuckingVolume ?? 35}%`}`);
   console.log(`  Autostart: ${config.autostart ? 'enabled' : 'not enabled'}`);
   console.log(`  Auto update: ${config.autoUpdate === false ? 'disabled' : 'enabled'}`);
@@ -626,10 +671,17 @@ async function listen() {
         void handlePolishShortcut().catch((error) => log(`Polish error: ${error.message}`));
       })
     : undefined;
+  const spellShortcut = config.spellShortcut || defaultSpellShortcut;
+  const stopSpellShortcut = spellShortcut && spellShortcut !== shortcut && spellShortcut !== polishShortcut
+    ? listenForShortcut(spellShortcut, (event) => {
+        if (event === 'up') return;
+        void handleSpellShortcut().catch((error) => log(`Spell-fix error: ${error.message}`));
+      })
+    : undefined;
   const keepAlive = setInterval(() => undefined, 60_000);
   const stopDeviceWatcher = startInputDeviceWatcher();
   const stopAutoUpdater = startAutoUpdater(config);
-  process.once('exit', () => { clearInterval(keepAlive); stopAutoUpdater?.(); stopDeviceWatcher?.(); stopPolishShortcut?.(); stopShortcut?.(); });
+  process.once('exit', () => { clearInterval(keepAlive); stopAutoUpdater?.(); stopDeviceWatcher?.(); stopSpellShortcut?.(); stopPolishShortcut?.(); stopShortcut?.(); });
 
   if (process.platform === 'darwin') {
     await log('Mac note: if shortcut does not trigger, allow Terminal/iTerm in System Settings → Privacy & Security → Accessibility.');
@@ -671,6 +723,23 @@ async function listen() {
       await pasteIntoActiveApp(polished);
       await saveTranscript(polished, 'polish-shortcut');
       await log('Selected text polished and replaced.');
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function handleSpellShortcut() {
+    if (busy) return;
+    busy = true;
+    try {
+      await log('Fixing spelling in focused input...');
+      const text = await copyFocusedInputText();
+      if (!text) throw new Error('Focus an editable text field with content first, then press the spell-fix shortcut.');
+      const latestConfig = await loadConfig();
+      const fixed = await rewriteText(text, latestConfig, 'spell');
+      await pasteIntoActiveApp(fixed);
+      await saveTranscript(fixed, 'spell-shortcut');
+      await log('Focused input spelling fixed and replaced.');
     } finally {
       busy = false;
     }

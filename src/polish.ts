@@ -1,6 +1,6 @@
 import type { Config } from './config.js';
 
-export type RewriteMode = 'clean' | 'polish' | 'professional' | 'shorter' | 'friendly';
+export type RewriteMode = 'clean' | 'spell' | 'polish' | 'professional' | 'shorter' | 'friendly';
 
 type GroqChatResponse = {
   choices?: Array<{ message?: { content?: string } }>;
@@ -9,6 +9,7 @@ type GroqChatResponse = {
 
 const instructions: Record<RewriteMode, string> = {
   clean: "Clean up dictation artifacts, punctuation, grammar, and structure. Preserve the speaker's meaning.",
+  spell: 'Correct spelling mistakes, capitalization, and obvious punctuation only. Do not rewrite, summarize, translate, change wording, or alter the tone.',
   polish: 'Polish this written text. Fix grammar, punctuation, spelling, clarity, and sentence flow while preserving the original voice, tone, and meaning. Do not make it more formal unless needed.',
   professional: 'Rewrite the text to sound clear, polished, and professional. Preserve the meaning.',
   shorter: 'Make the text shorter and punchier. Preserve the core meaning.',

@@ -68,8 +68,31 @@ async function sendCopyShortcut() {
   spawnSync('xdotool', ['key', 'ctrl+c'], { stdio: 'ignore' });
 }
 
+async function sendSelectAllAndCopyShortcut() {
+  if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "a" using command down', '-e', 'delay 0.05', '-e', 'tell application "System Events" to keystroke "c" using command down'], { stdio: 'ignore' });
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    const scriptPath = join(tmpdir(), `wisper-select-copy-${process.pid}.vbs`);
+    writeFileSync(scriptPath, 'Set WshShell = WScript.CreateObject("WScript.Shell")\nWshShell.SendKeys "^a"\nWScript.Sleep 50\nWshShell.SendKeys "^c"\n');
+    spawnSync('wscript.exe', ['//B', scriptPath], { stdio: 'ignore', windowsHide: true });
+    try { unlinkSync(scriptPath); } catch {}
+    return;
+  }
+
+  spawnSync('xdotool', ['key', 'ctrl+a', 'ctrl+c'], { stdio: 'ignore' });
+}
+
 export async function copySelectedText() {
   await sendCopyShortcut();
+  await new Promise((resolve) => setTimeout(resolve, 180));
+  return (await clipboard.read()).trim();
+}
+
+export async function copyFocusedInputText() {
+  await sendSelectAllAndCopyShortcut();
   await new Promise((resolve) => setTimeout(resolve, 180));
   return (await clipboard.read()).trim();
 }

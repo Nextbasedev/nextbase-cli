@@ -14,8 +14,10 @@ export type ModelOption = {
 export type Config = {
   provider?: Provider;
   model?: string;
+  language?: string;
   shortcut?: string;
   polishShortcut?: string;
+  spellShortcut?: string;
   keys?: Partial<Record<Provider, string>>;
   autostart?: boolean;
   audioDevice?: string;
@@ -39,6 +41,7 @@ export const modelOptions: ModelOption[] = [
 export const providers: Provider[] = ['groq', 'elevenlabs', 'sarvam'];
 export const defaultShortcut = 'Ctrl+Alt+Space';
 export const defaultPolishShortcut = 'CommandOrControl+Shift+P';
+export const defaultSpellShortcut = 'CommandOrControl+Alt+S';
 
 export async function loadConfig(): Promise<Config> {
   await mkdir(dataDir, { recursive: true });
