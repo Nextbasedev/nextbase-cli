@@ -92,8 +92,12 @@ export async function copySelectedText() {
 }
 
 export async function copyFocusedInputText() {
+  // Never fall back to stale clipboard data. If the foreground app rejects
+  // Ctrl+A/C (or there is no editable field), return empty and let the caller
+  // show a safe error rather than replacing the field with an old clipboard item.
+  await clipboard.write('');
   await sendSelectAllAndCopyShortcut();
-  await new Promise((resolve) => setTimeout(resolve, 180));
+  await new Promise((resolve) => setTimeout(resolve, 280));
   return (await clipboard.read()).trim();
 }
 
