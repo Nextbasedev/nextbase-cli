@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_TARBALL="https://github.com/Nextbasedev/nextbase-cli/archive/refs/heads/master.tar.gz"
 INSTALL_DIR="${WISPER_INSTALL_DIR:-$HOME/.wisper-cli/app}"
 BIN_DIR="${WISPER_BIN_DIR:-$HOME/.local/bin}"
+NEXTBASE_BIN_PATH="$BIN_DIR/nextbase"
 BIN_PATH="$BIN_DIR/wisper"
 NOTEBOT_BIN_PATH="$BIN_DIR/notebot"
 TMP_DIR="$(mktemp -d)"
@@ -61,8 +62,9 @@ if [ ! -f "$INSTALL_DIR/dist/cli.js" ]; then
   echo "Local TypeScript build did not produce dist; trying npx fallback..."
   npx --yes --cache "$TMP_DIR/npm-cache" -p typescript -p @types/node tsc -p tsconfig.json
 fi
-chmod +x "$INSTALL_DIR/dist/cli.js"
+chmod +x "$INSTALL_DIR/dist/nextbase-cli.js" "$INSTALL_DIR/dist/cli.js" "$INSTALL_DIR/dist/notebot-cli.js"
 
+ln -sf "$INSTALL_DIR/dist/nextbase-cli.js" "$NEXTBASE_BIN_PATH"
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"
 ln -sf "$INSTALL_DIR/dist/notebot-cli.js" "$NOTEBOT_BIN_PATH"
 
@@ -96,12 +98,12 @@ if [ "$PATH_OK" = "0" ]; then
 fi
 
 echo ""
-echo "Wisper CLI installed."
-echo "Binary: $BIN_PATH"
+echo "Nextbase CLI installed."
+echo "Binaries: $NEXTBASE_BIN_PATH, $BIN_PATH, $NOTEBOT_BIN_PATH"
 
 if [ "$PATH_OK" = "0" ]; then
   echo "Added $BIN_DIR to your shell profile. Open a new Terminal, or run:"
   echo "  export PATH=\"$BIN_DIR:\$PATH\""
 else
-  echo "Run: wisper setup"
+  echo "Run: nextbase"
 fi

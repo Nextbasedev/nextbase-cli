@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "bin": {
+    "nextbase": "./dist/nextbase-cli.js",
     "wisper": "./dist/cli.js",
     "notebot": "./dist/notebot-cli.js"
   },

@@ -3,6 +3,35 @@
 **Wisper** is the first tool in Nextbase CLI: a voice-to-text utility that remains available as the `wisper` command. **NoteBot** is the second tool: it records meetings and turns them into transcripts, summaries, decisions, and action items. Future Nextbase command-line tools will live in this repository alongside them.
 
 
+## Nextbase umbrella command
+
+Use the umbrella command when you want a menu:
+
+```bash
+nextbase
+```
+
+It shows:
+
+```txt
+1. Wisper  - dictation / polish / spell fix
+2. NoteBot - meetings / audio notes / tasks
+```
+
+You can also route directly through it:
+
+```bash
+nextbase wisper setup
+nextbase notebot open
+```
+
+Individual tool commands still work:
+
+```bash
+wisper setup
+notebot open
+```
+
 ## NoteBot — meeting notes
 
 ```bash
@@ -37,7 +66,7 @@ The installer also tries to install SoX automatically with `winget` if it is mis
 Then:
 
 ```powershell
-wisper setup
+nextbase
 ```
 
 ### macOS / Linux
@@ -49,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/Nextbasedev/nextbase-cli/master/ins
 Then:
 
 ```bash
-wisper setup
+nextbase
 ```
 
 To update later without redoing setup:
@@ -60,7 +89,7 @@ wisper update
 
 The updater installs the latest version, keeps existing API key/shortcut/history, asks only for missing new options, refreshes autostart, and restarts the listener.
 
-The installer downloads the repo, builds it, and links `wisper` and `notebot` into your user bin directory.
+The installer downloads the repo, builds it, and links `nextbase`, `wisper`, and `notebot` into your user bin directory.
 
 
 Clean CLI-first base for a Wispr Flow-style dictation tool.
@@ -105,7 +134,7 @@ wisper open       # open local web app
 
 ## Base features
 
-- CLI entrypoints: `wisper` and `notebot`
+- CLI entrypoints: `nextbase`, `wisper`, and `notebot`
 - Local transcript storage in `~/.wisper-cli/history.json`
 - `wisper setup` for simple first-time setup
 - `wisper provider` to choose provider from a menu

@@ -4,6 +4,7 @@ $RepoZip = "https://github.com/Nextbasedev/nextbase-cli/archive/refs/heads/maste
 $InstallRoot = if ($env:WISPER_INSTALL_ROOT) { $env:WISPER_INSTALL_ROOT } else { Join-Path $env:USERPROFILE ".wisper-cli" }
 $InstallDir = if ($env:WISPER_INSTALL_DIR) { $env:WISPER_INSTALL_DIR } else { Join-Path $InstallRoot "app" }
 $BinDir = if ($env:WISPER_BIN_DIR) { $env:WISPER_BIN_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }
+$NextbaseBinPath = Join-Path $BinDir "nextbase.cmd"
 $BinPath = Join-Path $BinDir "wisper.cmd"
 $NoteBotBinPath = Join-Path $BinDir "notebot.cmd"
 $TmpDir = Join-Path $env:TEMP ("wisper-cli-" + [guid]::NewGuid().ToString())
@@ -93,8 +94,10 @@ try {
   }
   Move-Item $StageDir $InstallDir
 
+  $FinalNextbaseCliPath = Join-Path $InstallDir "dist\nextbase-cli.js"
   $FinalCliPath = Join-Path $InstallDir "dist\cli.js"
   $FinalNoteBotCliPath = Join-Path $InstallDir "dist\notebot-cli.js"
+  Set-Content -Path $NextbaseBinPath -Value "@echo off`r`nnode `"$FinalNextbaseCliPath`" %*`r`n" -Encoding ASCII
   Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$FinalCliPath`" %*`r`n" -Encoding ASCII
   Set-Content -Path $NoteBotBinPath -Value "@echo off`r`nnode `"$FinalNoteBotCliPath`" %*`r`n" -Encoding ASCII
 
@@ -112,12 +115,12 @@ try {
     $NewPath = if ($UserPath) { "$UserPath;$BinDir" } else { $BinDir }
     [Environment]::SetEnvironmentVariable("Path", $NewPath, "User")
     $env:Path = "$env:Path;$BinDir"
-    Write-Host "Added $BinDir to your user PATH. Open a new terminal if 'wisper' is not found immediately."
+    Write-Host "Added $BinDir to your user PATH. Open a new terminal if 'nextbase' is not found immediately."
   }
 
   Write-Host ""
-  Write-Host "Wisper CLI installed."
-  Write-Host "Run: wisper setup"
+  Write-Host "Nextbase CLI installed."
+  Write-Host "Run: nextbase"
 } finally {
   if (Test-Path $TmpDir) {
     Remove-Item $TmpDir -Recurse -Force
