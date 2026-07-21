@@ -36,6 +36,9 @@ const dir = join(homedir(), '.notebot');
 const notesFile = join(dir, 'meetings.json');
 const activeFile = join(dir, 'active-meeting.json');
 
+export const notebotDir = dir;
+export const notebotAudioDir = join(dir, 'audio');
+
 async function writeJson(path: string, value: unknown) {
   await mkdir(dir, { recursive: true });
   const temp = `${path}.${process.pid}.tmp`;

@@ -1,13 +1,16 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
-import { stat } from 'node:fs/promises';
+import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { basename, extname, join } from 'node:path';
 import { loadConfig, updateConfig, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
 import { startRecording, stopRecording } from './audio.js';
 import { transcribeFile } from './transcribe.js';
 import { verifyProviderKey } from './verify.js';
 import { analyzeMeeting } from './notebot-ai.js';
-import { clearActiveMeeting, loadActiveMeeting, loadMeetings, saveActiveMeeting, saveMeeting, type ActiveMeeting } from './notebot-storage.js';
+import { clearActiveMeeting, loadActiveMeeting, loadMeetings, notebotAudioDir, saveActiveMeeting, saveMeeting, type ActiveMeeting } from './notebot-storage.js';
+import { startNoteBotWebApp } from './notebot-server.js';
+import { openUrl } from './open.js';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +19,8 @@ const [command, ...args] = process.argv.slice(2);
 async function main() {
   if (command === 'setup') return setup();
   if (command === 'meeting') return meeting(args);
+  if (command === 'audio') return processAudioCommand(args);
+  if (command === 'open' || command === 'app') return openDashboard(args);
   if (command === 'history') return history();
   if (command === 'tasks') return tasks();
   if (command === '_record') return recordWorker(args[0]);
@@ -30,6 +35,8 @@ Commands:
   notebot meeting start          Start background meeting recording
   notebot meeting stop           Stop, transcribe, and create meeting notes
   notebot meeting status         Show active meeting state
+  notebot audio <path-or-url>    Process an existing local or remote audio file
+  notebot open                   Open local NoteBot dashboard
   notebot history                Show saved meetings
   notebot tasks                  Show open extracted tasks
 `);
@@ -155,27 +162,71 @@ async function stopMeeting() {
   const info = await stat(recorded.audioPath);
   if (info.size < 1024) throw new Error('Meeting audio is empty. Check microphone/system-audio setup.');
 
-  console.log('Transcribing meeting...');
-  const config = await ensureConfigured();
-  const transcript = await transcribeFile(recorded.audioPath, config);
-  if (!transcript) throw new Error('Meeting transcription returned no text.');
-
-  console.log('Extracting summary, decisions, and action items...');
-  const analysis = await analyzeMeeting(transcript, config);
-  const note = {
-    id: recorded.id,
-    createdAt: new Date(recorded.startedAt).toISOString(),
-    durationMs: Date.now() - recorded.startedAt,
-    audioPath: recorded.audioPath,
-    transcript,
-    ...analysis
-  };
-  await saveMeeting(note);
+  const note = await processAudioFile(recorded.audioPath, recorded.id, recorded.startedAt, Date.now() - recorded.startedAt);
   await clearActiveMeeting();
 
   console.log(`Saved: ${note.title}`);
   console.log(`Decisions: ${note.decisions.length} | Tasks: ${note.actionItems.length}`);
   for (const task of note.actionItems) console.log(`- [${task.confidence}] ${task.task}${task.owner ? ` — ${task.owner}` : ''}`);
+}
+
+async function processAudioCommand(args: string[]) {
+  const source = args.join(' ').trim();
+  if (!source) throw new Error('Usage: notebot audio <local-path-or-remote-url>');
+  const audioPath = await resolveAudioSource(source);
+  const note = await processAudioFile(audioPath, `audio-${Date.now()}`, Date.now(), 0);
+  console.log(`Saved: ${note.title}`);
+  console.log(`Decisions: ${note.decisions.length} | Tasks: ${note.actionItems.length}`);
+  for (const task of note.actionItems) console.log(`- [${task.confidence}] ${task.task}${task.owner ? ` — ${task.owner}` : ''}`);
+}
+
+async function openDashboard(args: string[]) {
+  const url = await startNoteBotWebApp(Number(args[0] || 3840));
+  openUrl(url);
+  console.log(`NoteBot dashboard running at ${url}`);
+  console.log('Press Ctrl+C to stop.');
+}
+
+async function processAudioFile(audioPath: string, id: string, startedAt: number, durationMs: number) {
+  const info = await stat(audioPath);
+  if (info.size < 1024) throw new Error('Audio file is empty or too small.');
+
+  console.log('Transcribing meeting audio...');
+  const config = await ensureConfigured();
+  const transcript = await transcribeFile(audioPath, config);
+  if (!transcript) throw new Error('Meeting transcription returned no text.');
+
+  console.log('Extracting summary, decisions, and action items...');
+  const analysis = await analyzeMeeting(transcript, config);
+  const note = {
+    id,
+    createdAt: new Date(startedAt).toISOString(),
+    durationMs,
+    audioPath,
+    transcript,
+    ...analysis
+  };
+  await saveMeeting(note);
+  return note;
+}
+
+async function resolveAudioSource(source: string) {
+  if (/^https?:\/\//i.test(source)) return downloadAudio(source);
+  if (source.startsWith('file://')) source = fileURLToPath(source);
+  if (!existsSync(source)) throw new Error(`Audio file not found: ${source}`);
+  return source;
+}
+
+async function downloadAudio(url: string) {
+  await mkdir(notebotAudioDir, { recursive: true });
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Could not download audio: HTTP ${response.status}`);
+  const parsed = new URL(url);
+  const extension = extname(parsed.pathname) || '.audio';
+  const safeName = basename(parsed.pathname).replace(/[^a-z0-9._-]/gi, '-') || `remote-${Date.now()}${extension}`;
+  const output = join(notebotAudioDir, `${Date.now()}-${safeName}`);
+  await writeFile(output, Buffer.from(await response.arrayBuffer()));
+  return output;
 }
 
 async function meetingStatus() {

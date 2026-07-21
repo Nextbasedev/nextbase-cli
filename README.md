@@ -10,6 +10,9 @@ notebot setup
 notebot meeting start
 # When the meeting ends:
 notebot meeting stop
+notebot audio ./meeting.wav
+notebot audio https://example.com/meeting.mp3
+notebot open
 notebot history
 notebot tasks
 ```
@@ -19,7 +22,7 @@ notebot tasks
 - **Sarvam** or **Groq** key for multilingual transcription
 - **Groq** key for meeting summaries, decisions, and action items
 
-Meeting notes are stored locally under `~/.notebot/`. Responsibilities are assigned only when explicit in the transcript; otherwise they are marked `suggested` or `unassigned`.
+Meeting notes are stored locally under `~/.notebot/`. Responsibilities are assigned only when explicit in the transcript; otherwise they are marked `suggested` or `unassigned`. `notebot open` launches a local dashboard with Start Meeting, Stop & Generate Notes, meeting history, transcript, decisions, tasks, and a local/remote audio-file input.
 
 ## Install without Git
 
