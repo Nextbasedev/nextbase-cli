@@ -5,6 +5,7 @@ $InstallRoot = if ($env:WISPER_INSTALL_ROOT) { $env:WISPER_INSTALL_ROOT } else {
 $InstallDir = if ($env:WISPER_INSTALL_DIR) { $env:WISPER_INSTALL_DIR } else { Join-Path $InstallRoot "app" }
 $BinDir = if ($env:WISPER_BIN_DIR) { $env:WISPER_BIN_DIR } else { Join-Path $env:USERPROFILE ".local\bin" }
 $BinPath = Join-Path $BinDir "wisper.cmd"
+$NoteBotBinPath = Join-Path $BinDir "notebot.cmd"
 $TmpDir = Join-Path $env:TEMP ("wisper-cli-" + [guid]::NewGuid().ToString())
 
 function Need($Command, $InstallHint) {
@@ -93,7 +94,9 @@ try {
   Move-Item $StageDir $InstallDir
 
   $FinalCliPath = Join-Path $InstallDir "dist\cli.js"
+  $FinalNoteBotCliPath = Join-Path $InstallDir "dist\notebot-cli.js"
   Set-Content -Path $BinPath -Value "@echo off`r`nnode `"$FinalCliPath`" %*`r`n" -Encoding ASCII
+  Set-Content -Path $NoteBotBinPath -Value "@echo off`r`nnode `"$FinalNoteBotCliPath`" %*`r`n" -Encoding ASCII
 
   try {
     $Commit = Invoke-RestMethod -Uri "https://api.github.com/repos/Nextbasedev/nextbase-cli/commits/master?x=$(Get-Random)" -Headers @{ "User-Agent" = "wisper-cli-installer" }

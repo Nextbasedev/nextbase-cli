@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "bin": {
-    "wisper": "./dist/cli.js"
+    "wisper": "./dist/cli.js",
+    "notebot": "./dist/notebot-cli.js"
   },
   "scripts": {
     "dev": "tsx src/cli.ts",

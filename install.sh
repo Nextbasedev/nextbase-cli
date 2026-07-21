@@ -5,6 +5,7 @@ REPO_TARBALL="https://github.com/Nextbasedev/nextbase-cli/archive/refs/heads/mas
 INSTALL_DIR="${WISPER_INSTALL_DIR:-$HOME/.wisper-cli/app}"
 BIN_DIR="${WISPER_BIN_DIR:-$HOME/.local/bin}"
 BIN_PATH="$BIN_DIR/wisper"
+NOTEBOT_BIN_PATH="$BIN_DIR/notebot"
 TMP_DIR="$(mktemp -d)"
 
 cleanup() {
@@ -63,6 +64,7 @@ fi
 chmod +x "$INSTALL_DIR/dist/cli.js"
 
 ln -sf "$INSTALL_DIR/dist/cli.js" "$BIN_PATH"
+ln -sf "$INSTALL_DIR/dist/notebot-cli.js" "$NOTEBOT_BIN_PATH"
 
 if command -v node >/dev/null 2>&1; then
   node -e "fetch('https://api.github.com/repos/Nextbasedev/nextbase-cli/commits/master?x=' + Date.now(), { headers: { 'user-agent': 'wisper-cli-installer' } }).then(r => r.json()).then(j => j.sha && require('fs').writeFileSync(require('path').join(require('os').homedir(), '.wisper-cli', 'installed-sha'), j.sha)).catch(() => {})" || true

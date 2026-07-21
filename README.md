@@ -1,6 +1,25 @@
 # Nextbase CLI
 
-**Wisper** is the first tool in Nextbase CLI: a voice-to-text utility that remains available as the `wisper` command. Future Nextbase command-line tools will live in this repository alongside it.
+**Wisper** is the first tool in Nextbase CLI: a voice-to-text utility that remains available as the `wisper` command. **NoteBot** is the second tool: it records meetings and turns them into transcripts, summaries, decisions, and action items. Future Nextbase command-line tools will live in this repository alongside them.
+
+
+## NoteBot — meeting notes
+
+```bash
+notebot setup
+notebot meeting start
+# When the meeting ends:
+notebot meeting stop
+notebot history
+notebot tasks
+```
+
+`notebot setup` asks for missing keys locally:
+
+- **Sarvam** or **Groq** key for multilingual transcription
+- **Groq** key for meeting summaries, decisions, and action items
+
+Meeting notes are stored locally under `~/.notebot/`. Responsibilities are assigned only when explicit in the transcript; otherwise they are marked `suggested` or `unassigned`.
 
 ## Install without Git
 
@@ -38,7 +57,7 @@ wisper update
 
 The updater installs the latest version, keeps existing API key/shortcut/history, asks only for missing new options, refreshes autostart, and restarts the listener.
 
-The installer downloads the repo, builds it, and links `wisper` into your user bin directory.
+The installer downloads the repo, builds it, and links `wisper` and `notebot` into your user bin directory.
 
 
 Clean CLI-first base for a Wispr Flow-style dictation tool.
@@ -83,7 +102,7 @@ wisper open       # open local web app
 
 ## Base features
 
-- CLI entrypoint: `wisper`
+- CLI entrypoints: `wisper` and `notebot`
 - Local transcript storage in `~/.wisper-cli/history.json`
 - `wisper setup` for simple first-time setup
 - `wisper provider` to choose provider from a menu
