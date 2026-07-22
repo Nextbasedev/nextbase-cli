@@ -35,7 +35,7 @@ const configFile = join(dataDir, 'config.json');
 export const modelOptions: ModelOption[] = [
   { id: 'groq-whisper', label: 'Groq Whisper Large v3 Turbo', provider: 'groq', model: 'whisper-large-v3-turbo' },
   { id: 'elevenlabs-scribe', label: 'ElevenLabs Scribe v2', provider: 'elevenlabs', model: 'scribe_v2' },
-  { id: 'sarvam-saarika', label: 'Sarvam Saarika', provider: 'sarvam', model: 'saarika:v2' }
+  { id: 'sarvam-saaras', label: 'Sarvam Saaras v3', provider: 'sarvam', model: 'saaras:v3' }
 ];
 
 export const providers: Provider[] = ['groq', 'elevenlabs', 'sarvam'];

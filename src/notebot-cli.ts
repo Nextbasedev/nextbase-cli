@@ -54,9 +54,9 @@ async function setup() {
       const result = await verifyProviderKey(selected, key);
       console.log(result.message);
       if (!result.ok) throw new Error(`Could not verify ${selected} key. Setup stopped.`);
-      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saarika:v2' : 'whisper-large-v3-turbo', keys: { [selected]: key } });
+      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : 'whisper-large-v3-turbo', keys: { [selected]: key } });
     } else {
-      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saarika:v2' : 'whisper-large-v3-turbo' });
+      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : 'whisper-large-v3-turbo' });
       console.log(`${selected} key already saved.`);
     }
 

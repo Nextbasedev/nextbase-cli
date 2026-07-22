@@ -9,7 +9,7 @@ export async function transcribeFile(file: string, config: Config): Promise<stri
 
   if (config.provider === 'groq') return transcribeGroq(file, key, config.model || 'whisper-large-v3-turbo');
   if (config.provider === 'elevenlabs') return transcribeElevenLabs(file, key, config.model || 'scribe_v2');
-  if (config.provider === 'sarvam') return transcribeSarvam(file, key, config.model || 'saarika:v2');
+  if (config.provider === 'sarvam') return transcribeSarvam(file, key, config.model || 'saaras:v3');
   throw new Error('Unsupported provider');
 }
 
@@ -59,7 +59,9 @@ async function transcribeSarvam(file: string, key: string, model: string) {
   const { audioFile } = await audioForm(file);
   const form = new FormData();
   form.set('file', audioFile);
-  form.set('model', model);
+  const sarvamModel = model === 'saarika:v2' ? 'saarika:v2.5' : model;
+  form.set('model', sarvamModel);
+  if (sarvamModel === 'saaras:v3') form.set('mode', 'transcribe');
   form.set('language_code', 'unknown');
 
   const response = await fetch('https://api.sarvam.ai/speech-to-text', {
@@ -67,7 +69,7 @@ async function transcribeSarvam(file: string, key: string, model: string) {
     headers: { 'api-subscription-key': key },
     body: form
   });
-  const body = await response.json().catch(() => ({})) as { transcript?: string; text?: string; error?: { message?: string } };
-  if (!response.ok) throw new Error(body.error?.message || `Sarvam transcription failed: HTTP ${response.status}`);
+  const body = await response.json().catch(() => ({})) as { transcript?: string; text?: string; error?: { message?: string }; message?: string; detail?: string };
+  if (!response.ok) throw new Error(body.error?.message || body.message || body.detail || `Sarvam transcription failed: HTTP ${response.status}`);
   return (body.transcript || body.text || '').trim();
 }
