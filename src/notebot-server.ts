@@ -4,7 +4,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadActiveMeeting, loadMeetings, notebotAudioDir } from './notebot-storage.js';
+import { loadActiveMeeting, loadMeetings, notebotAudioDir, notebotDir } from './notebot-storage.js';
 
 type DashboardJob = {
   id: string;
@@ -337,6 +337,7 @@ function safeFileName(value: string) {
 }
 
 export async function startNoteBotWebApp(port = 3840): Promise<string> {
+  const localUrl = `http://127.0.0.1:${port}`;
   const server = createServer(async (req, res) => {
     try {
       if (req.url === '/') {
@@ -395,6 +396,25 @@ export async function startNoteBotWebApp(port = 3840): Promise<string> {
     }
   });
 
-  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
-  return `http://127.0.0.1:${port}`;
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') {
+        console.warn(`NoteBot dashboard is already running at ${localUrl}`);
+        resolve();
+        return;
+      }
+      reject(error);
+    });
+    server.listen(port, '127.0.0.1', resolve);
+  });
+  if (server.listening) {
+    await mkdir(notebotDir, { recursive: true });
+    await writeFile(join(notebotDir, 'dashboard.pid'), String(process.pid)).catch(() => undefined);
+  }
+  const cleanup = () => {
+    server.close(() => undefined);
+  };
+  process.once('SIGTERM', cleanup);
+  process.once('SIGINT', cleanup);
+  return localUrl;
 }

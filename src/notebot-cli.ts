@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
-import { mkdir, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, extname, join } from 'node:path';
 import { loadConfig, updateConfig, type Provider } from './config.js';
 import { createPrompt } from './prompt.js';
@@ -8,7 +8,7 @@ import { startRecording, stopRecording } from './audio.js';
 import { transcribeFile } from './transcribe.js';
 import { verifyProviderKey } from './verify.js';
 import { analyzeMeeting } from './notebot-ai.js';
-import { clearActiveMeeting, loadActiveMeeting, loadMeetings, notebotAudioDir, saveActiveMeeting, saveMeeting, type ActiveMeeting } from './notebot-storage.js';
+import { clearActiveMeeting, loadActiveMeeting, loadMeetings, notebotAudioDir, notebotDir, saveActiveMeeting, saveMeeting, type ActiveMeeting } from './notebot-storage.js';
 import { startNoteBotWebApp } from './notebot-server.js';
 import { openUrl } from './open.js';
 import { spawn } from 'node:child_process';
@@ -21,6 +21,8 @@ async function main() {
   if (command === 'meeting') return meeting(args);
   if (command === 'audio') return processAudioCommand(args);
   if (command === 'open' || command === 'app') return openDashboard(args);
+  if (command === 'stop') return stopDashboard();
+  if (command === 'restart') return restartDashboard(args);
   if (command === 'history') return history();
   if (command === 'tasks') return tasks();
   if (command === '_record') return recordWorker(args[0]);
@@ -37,6 +39,8 @@ Commands:
   notebot meeting status         Show active meeting state
   notebot audio <path-or-url>    Process an existing local or remote audio file
   notebot open                   Open local NoteBot dashboard
+  notebot stop                   Stop local NoteBot dashboard
+  notebot restart                Restart local NoteBot dashboard
   notebot history                Show saved meetings
   notebot tasks                  Show open extracted tasks
 `);
@@ -184,7 +188,35 @@ async function openDashboard(args: string[]) {
   const url = await startNoteBotWebApp(Number(args[0] || 3840));
   openUrl(url);
   console.log(`NoteBot dashboard running at ${url}`);
-  console.log('Press Ctrl+C to stop.');
+  console.log('Press Ctrl+C to stop, or run: notebot stop');
+}
+
+async function stopDashboard() {
+  const pidFile = join(notebotDir, 'dashboard.pid');
+  let pid: number | undefined;
+  try {
+    pid = Number((await readFile(pidFile, 'utf8')).trim());
+  } catch {
+    console.log('No NoteBot dashboard PID found. If it is still open, close the terminal/window that started it.');
+    return;
+  }
+  if (!pid || !Number.isFinite(pid)) {
+    await rm(pidFile, { force: true });
+    console.log('Invalid NoteBot dashboard PID cleaned up.');
+    return;
+  }
+  try {
+    process.kill(pid, 'SIGTERM');
+    console.log(`Stopped NoteBot dashboard process ${pid}.`);
+  } catch {
+    console.log('Dashboard process was not running. Cleaned up stale PID.');
+  }
+  await rm(pidFile, { force: true }).catch(() => undefined);
+}
+
+async function restartDashboard(args: string[]) {
+  await stopDashboard();
+  await openDashboard(args);
 }
 
 async function processAudioFile(audioPath: string, id: string, startedAt: number, durationMs: number) {
