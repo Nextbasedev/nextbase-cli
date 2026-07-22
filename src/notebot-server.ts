@@ -25,74 +25,163 @@ const html = String.raw`<!doctype html>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Nextbase NoteBot</title>
   <style>
-    body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #08090d; color: #f4f4f5; }
-    main { max-width: 1040px; margin: 0 auto; padding: 32px 20px 64px; }
-    .hero { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
-    h1 { margin: 0 0 8px; font-size: 36px; letter-spacing: -0.04em; }
-    p { color: #a1a1aa; line-height: 1.6; }
-    button { border: 0; border-radius: 14px; padding: 12px 16px; font-weight: 700; color: #09090b; background: #a7f3d0; cursor: pointer; }
-    button.secondary { background: #e9d5ff; }
-    button.danger { background: #fecaca; }
-    button:disabled { opacity: .5; cursor: wait; }
-    input { width: min(620px, 100%); border: 1px solid #27272a; border-radius: 14px; padding: 12px 14px; background: #111217; color: #f4f4f5; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
-    .card { background: linear-gradient(180deg, #111217, #0c0d12); border: 1px solid #24252d; border-radius: 22px; padding: 18px; box-shadow: 0 20px 80px rgba(0,0,0,.25); }
+    :root {
+      --bg: #07080d;
+      --panel: rgba(15, 18, 28, 0.82);
+      --panel-strong: rgba(19, 23, 36, 0.96);
+      --line: rgba(255, 255, 255, 0.09);
+      --line-strong: rgba(255, 255, 255, 0.16);
+      --text: #f7f7fb;
+      --muted: #a8adbd;
+      --soft: #72798d;
+      --green: #91f7c5;
+      --violet: #c7b8ff;
+      --amber: #ffd98a;
+      --red: #ffb4b4;
+      --shadow: 0 26px 90px rgba(0, 0, 0, 0.42);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 12% -10%, rgba(145, 247, 197, 0.22), transparent 34%),
+        radial-gradient(circle at 86% 0%, rgba(199, 184, 255, 0.20), transparent 32%),
+        linear-gradient(180deg, #0b0d15 0%, var(--bg) 58%, #05060a 100%);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .32;
+      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
+    }
+    main { position: relative; max-width: 1180px; margin: 0 auto; padding: 30px 18px 72px; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 34px; }
+    .brand { display: flex; align-items: center; gap: 12px; color: #e8eaf3; font-weight: 800; letter-spacing: -.02em; }
+    .logo { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 14px; background: linear-gradient(135deg, rgba(145,247,197,.95), rgba(199,184,255,.95)); color: #08090d; box-shadow: 0 12px 36px rgba(145,247,197,.22); }
+    .status-pill { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 13px; color: #d8dcf0; background: rgba(255,255,255,.05); backdrop-filter: blur(18px); font-size: 13px; font-weight: 700; }
+    .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--green); box-shadow: 0 0 20px rgba(145,247,197,.8); }
+    .hero { display: grid; grid-template-columns: minmax(0, 1.16fr) minmax(290px, .84fr); gap: 18px; align-items: stretch; margin-bottom: 18px; }
+    .hero-card, .card, .job { border: 1px solid var(--line); background: linear-gradient(180deg, var(--panel), rgba(10,12,20,.78)); backdrop-filter: blur(22px); box-shadow: var(--shadow); }
+    .hero-card { border-radius: 34px; padding: 34px; overflow: hidden; position: relative; }
+    .hero-card::after { content: ""; position: absolute; width: 260px; height: 260px; right: -110px; top: -95px; background: radial-gradient(circle, rgba(145,247,197,.20), transparent 65%); }
+    .eyebrow { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 18px; color: var(--green); border: 1px solid rgba(145,247,197,.25); background: rgba(145,247,197,.08); padding: 8px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+    h1 { margin: 0; max-width: 780px; font-size: clamp(42px, 7vw, 76px); line-height: .9; letter-spacing: -0.075em; }
+    h2 { margin: 0; font-size: 20px; letter-spacing: -.03em; }
+    h3 { margin: 0; font-size: 17px; letter-spacing: -.025em; }
+    p { margin: 0; color: var(--muted); line-height: 1.62; }
+    .hero-copy { max-width: 710px; margin-top: 20px; font-size: 17px; color: #c3c8d8; }
+    .metric-card { border-radius: 34px; padding: 24px; background: linear-gradient(160deg, rgba(199,184,255,.14), rgba(145,247,197,.08)); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .metric-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 18px; }
+    .metric { padding: 14px; border-radius: 20px; background: rgba(255,255,255,.055); border: 1px solid var(--line); }
+    .metric b { display:block; font-size: 22px; letter-spacing: -.05em; }
+    .metric span { display:block; margin-top: 3px; color: var(--soft); font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
+    .card { border-radius: 28px; padding: 24px; }
+    .card-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 14px; margin-bottom: 18px; }
+    .icon { width: 42px; height: 42px; display:grid; place-items:center; border-radius: 16px; background: rgba(255,255,255,.07); border: 1px solid var(--line); }
+    .status { color: var(--muted); font-size: 14px; }
+    .field { display: flex; gap: 10px; align-items: center; margin-top: 18px; }
+    input { width: 100%; min-height: 48px; border: 1px solid var(--line-strong); border-radius: 16px; padding: 0 15px; background: rgba(5,6,10,.58); color: var(--text); outline: none; transition: border .18s ease, box-shadow .18s ease; }
+    input:focus { border-color: rgba(145,247,197,.55); box-shadow: 0 0 0 4px rgba(145,247,197,.10); }
+    button { min-height: 46px; border: 0; border-radius: 16px; padding: 0 16px; font-weight: 850; letter-spacing: -.01em; color: #07080d; background: var(--green); cursor: pointer; transition: transform .12s ease, opacity .12s ease, box-shadow .12s ease; box-shadow: 0 12px 26px rgba(145,247,197,.12); }
+    button:hover { transform: translateY(-1px); box-shadow: 0 16px 36px rgba(145,247,197,.18); }
+    button.secondary { background: var(--violet); box-shadow: 0 12px 26px rgba(199,184,255,.12); }
+    button.ghost { color: var(--text); background: rgba(255,255,255,.07); border: 1px solid var(--line); box-shadow: none; }
+    button.danger { background: var(--red); box-shadow: 0 12px 26px rgba(255,180,180,.12); }
+    button:disabled { opacity: .52; cursor: wait; transform: none; }
     .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-    .status { font-size: 14px; color: #a1a1aa; }
-    .job { border: 1px solid #3f3f46; background: #0a0b10; border-radius: 16px; padding: 14px; margin-top: 14px; }
-    .job.running { border-color: #86efac; box-shadow: 0 0 0 1px rgba(134,239,172,.08), 0 0 40px rgba(134,239,172,.08); }
-    .job.failed { border-color: #fecaca; }
-    .spinner { display: inline-block; width: 10px; height: 10px; border: 2px solid #334155; border-top-color: #86efac; border-radius: 999px; animation: spin 1s linear infinite; margin-right: 8px; }
+    .message { min-height: 20px; margin: 16px 4px 0; color: #cdd3e6; }
+    .job { display:none; border-radius: 28px; padding: 20px; margin-top: 18px; }
+    .job.running { border-color: rgba(145,247,197,.55); box-shadow: 0 0 0 1px rgba(145,247,197,.08), 0 24px 90px rgba(145,247,197,.08); }
+    .job.failed { border-color: rgba(255,180,180,.6); }
+    .job-head { display:flex; justify-content:space-between; gap: 14px; align-items:center; margin-bottom: 12px; }
+    .progress { height: 9px; overflow:hidden; border-radius: 999px; background: rgba(255,255,255,.08); margin: 14px 0; }
+    .bar { width: 38%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--green), var(--violet)); animation: glide 1.35s ease-in-out infinite alternate; }
+    @keyframes glide { from { transform: translateX(-44%); } to { transform: translateX(186%); } }
+    .spinner { display:inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.18); border-top-color: var(--green); border-radius: 999px; animation: spin 1s linear infinite; margin-right: 8px; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .pill { display: inline-flex; border: 1px solid #30313a; border-radius: 999px; padding: 4px 9px; color: #c4b5fd; font-size: 12px; }
-    .meeting { margin-top: 14px; padding-top: 14px; border-top: 1px solid #24252d; }
-    .meeting h3 { margin: 0 0 8px; }
-    .task { color: #d4d4d8; font-size: 14px; margin: 5px 0; }
-    pre { white-space: pre-wrap; color: #d4d4d8; background: #090a0f; border-radius: 14px; padding: 12px; max-height: 220px; overflow: auto; }
+    .pill { display:inline-flex; align-items:center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; color: #dfe3f6; background: rgba(255,255,255,.055); font-size: 12px; font-weight: 750; }
+    .meetings-card { margin-top: 18px; }
+    .meetings-head { display:flex; justify-content:space-between; align-items:center; gap: 12px; margin-bottom: 10px; }
+    .meeting { margin-top: 14px; padding: 18px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255,255,255,.045); }
+    .meeting-top { display:flex; justify-content:space-between; gap: 12px; align-items:flex-start; margin-bottom: 10px; }
+    .task { color: #d7dbeb; font-size: 14px; margin: 7px 0; padding: 9px 10px; border-radius: 12px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.06); }
+    .empty { padding: 30px; text-align:center; border: 1px dashed var(--line-strong); border-radius: 22px; color: var(--muted); background: rgba(255,255,255,.03); }
+    pre { white-space: pre-wrap; color: #d7dbeb; background: rgba(5,6,10,.78); border: 1px solid var(--line); border-radius: 18px; padding: 14px; max-height: 260px; overflow: auto; font-size: 12px; line-height: 1.55; }
+    summary { color: #dfe3f6; cursor:pointer; margin-top: 12px; font-weight: 700; }
+    @media (max-width: 820px) { .hero, .grid { grid-template-columns: 1fr; } .hero-card { padding: 26px; } .field { flex-direction: column; align-items: stretch; } button { width: 100%; } .metric-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
 <main>
+  <nav class="topbar">
+    <div class="brand"><span class="logo">N</span><span>Nextbase NoteBot</span></div>
+    <span class="status-pill"><span class="dot"></span><span id="status-pill">Loading…</span></span>
+  </nav>
+
   <section class="hero">
-    <div>
-      <h1>Nextbase NoteBot</h1>
-      <p>Record meetings or process an existing local/remote audio file. NoteBot creates multilingual transcripts, summaries, decisions, and responsible action items.</p>
+    <div class="hero-card">
+      <span class="eyebrow">Meeting intelligence</span>
+      <h1>Turn messy calls into clean decisions.</h1>
+      <p class="hero-copy">Record a live meeting or drop in an audio file. NoteBot transcribes multilingual conversations, detects speaker turns with Sarvam Batch, and extracts decisions, tasks, blockers, and owners.</p>
     </div>
-    <span class="pill" id="status-pill">Loading…</span>
+    <aside class="metric-card">
+      <h2>Pipeline</h2>
+      <p style="margin-top:8px">Designed for long real meetings, not 30-second demos.</p>
+      <div class="metric-grid">
+        <div class="metric"><b>2h</b><span>Sarvam Batch audio</span></div>
+        <div class="metric"><b>20</b><span>speaker labels max</span></div>
+        <div class="metric"><b>3</b><span>summary layers</span></div>
+        <div class="metric"><b>0</b><span>silent owner guessing</span></div>
+      </div>
+    </aside>
   </section>
 
   <section class="grid">
     <div class="card">
-      <h2>Live meeting</h2>
-      <p class="status" id="meeting-status">Checking status…</p>
+      <div class="card-head">
+        <div><h2>Live meeting</h2><p class="status" id="meeting-status">Checking status…</p></div>
+        <div class="icon">🎙️</div>
+      </div>
       <div class="row">
-        <button onclick="run('/api/start')">Start Meeting</button>
-        <button class="danger" onclick="run('/api/stop')">Stop & Generate Notes</button>
+        <button onclick="run('/api/start')">Start recording</button>
+        <button class="danger" onclick="run('/api/stop')">Stop & generate notes</button>
       </div>
     </div>
 
     <div class="card">
-      <h2>Process audio file</h2>
-      <p>Paste a remote URL or choose a local audio file.</p>
-      <input id="audio-source" placeholder="https://example.com/audio.mp3" />
-      <div style="height:10px"></div>
-      <div class="row">
-        <button class="secondary" onclick="processRemoteAudio()">Use Remote URL</button>
-        <button onclick="document.getElementById('audio-file').click()">Choose Local File</button>
+      <div class="card-head">
+        <div><h2>Process audio</h2><p class="status">Use a remote URL or upload from this computer.</p></div>
+        <div class="icon">📁</div>
+      </div>
+      <div class="field">
+        <input id="audio-source" placeholder="https://example.com/meeting.mp3" />
+        <button class="secondary" onclick="processRemoteAudio()">Use URL</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="ghost" onclick="document.getElementById('audio-file').click()">Choose local audio file</button>
       </div>
       <input id="audio-file" type="file" accept="audio/*,video/mp4,video/webm,.wav,.mp3,.m4a,.mp4,.webm,.ogg,.opus,.flac,.aac" style="display:none" onchange="processUploadedAudio()" />
     </div>
   </section>
 
-  <p class="status" id="message"></p>
-  <section class="job" id="job-card" style="display:none;">
-    <strong id="job-title"></strong>
+  <p class="message" id="message"></p>
+  <section class="job" id="job-card">
+    <div class="job-head"><strong id="job-title"></strong><span class="pill" id="job-pill">Running</span></div>
     <p class="status" id="job-status"></p>
+    <div class="progress" id="job-progress"><div class="bar"></div></div>
     <pre id="job-output"></pre>
   </section>
 
-  <section class="card" style="margin-top: 16px;">
-    <h2>Meetings</h2>
+  <section class="card meetings-card">
+    <div class="meetings-head"><h2>Meeting history</h2><span class="pill" id="meeting-count">0 meetings</span></div>
     <div id="meetings"></div>
   </section>
 </main>
@@ -117,9 +206,10 @@ async function run(path) {
 }
 async function processRemoteAudio() {
   const source = document.getElementById('audio-source').value.trim();
-  if (!source) return;
+  if (!source) { document.getElementById('message').textContent = 'Paste a remote audio URL first.'; return; }
   setBusy(true);
   try {
+    document.getElementById('message').textContent = 'Starting remote audio processing...';
     const data = await api('/api/audio', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source }) });
     document.getElementById('message').textContent = data.job ? 'Started: ' + data.job.label : (data.output || 'Audio processing started');
   } catch (e) {
@@ -153,27 +243,31 @@ async function refresh() {
   const job = data.latestJob;
   const running = job && job.status === 'running';
   document.getElementById('status-pill').textContent = running ? 'Processing' : (active ? active.status : 'Idle');
-  document.getElementById('meeting-status').textContent = active ? active.id + ' · ' + active.status : 'No active meeting.';
+  document.getElementById('meeting-status').textContent = active ? active.id + ' · ' + active.status : 'No active meeting. Ready when you are.';
   setBusy(Boolean(running));
   renderJob(job);
+  document.getElementById('meeting-count').textContent = (data.meetings.length || 0) + ' meetings';
   document.getElementById('meetings').innerHTML = data.meetings.length ? data.meetings.map((note) => {
     const decisions = (note.decisions || []).map((d) => '<div class="task">Decision: ' + escapeHtml(d) + '</div>').join('');
     const tasks = (note.actionItems || []).map((t) => '<div class="task">[' + escapeHtml(t.confidence) + '] ' + escapeHtml(t.task) + (t.owner ? ' — ' + escapeHtml(t.owner) : '') + '</div>').join('');
-    return '<article class="meeting"><h3>' + escapeHtml(note.title) + '</h3><p>' + escapeHtml(note.summary || '') + '</p><div class="pill">' + ((note.actionItems && note.actionItems.length) || 0) + ' tasks</div><div>' + decisions + '</div><div>' + tasks + '</div><details><summary>Transcript</summary><pre>' + escapeHtml(note.transcript || '') + '</pre></details></article>';
-  }).join('') : '<p>No meetings yet.</p>';
+    return '<article class="meeting"><div class="meeting-top"><div><h3>' + escapeHtml(note.title) + '</h3><p>' + escapeHtml(note.summary || '') + '</p></div><span class="pill">' + ((note.actionItems && note.actionItems.length) || 0) + ' tasks</span></div><div>' + decisions + '</div><div>' + tasks + '</div><details><summary>Transcript</summary><pre>' + escapeHtml(note.transcript || '') + '</pre></details></article>';
+  }).join('') : '<div class="empty">No meetings yet. Start a live recording or upload a sample audio file.</div>';
 }
 function renderJob(job) {
   const card = document.getElementById('job-card');
   if (!job) { card.style.display = 'none'; return; }
   card.style.display = 'block';
   card.className = 'job ' + job.status;
-  document.getElementById('job-title').innerHTML = (job.status === 'running' ? '<span class="spinner"></span>' : '') + escapeHtml(job.label);
-  document.getElementById('job-status').textContent = job.status === 'running' ? 'Running now — keep this page open. This can take a few minutes for long meetings.' : (job.status === 'done' ? 'Done' : 'Failed');
-  document.getElementById('job-output').textContent = job.output || (job.status === 'running' ? 'Waiting for logs...' : '');
+  const running = job.status === 'running';
+  document.getElementById('job-title').innerHTML = (running ? '<span class="spinner"></span>' : '') + escapeHtml(job.label);
+  document.getElementById('job-pill').textContent = running ? 'Running' : (job.status === 'done' ? 'Complete' : 'Failed');
+  document.getElementById('job-status').textContent = running ? 'Processing now. Sarvam Batch can take a few minutes for long meetings.' : (job.status === 'done' ? 'Complete. Latest meeting history is refreshed below.' : 'Failed. Check logs below.');
+  document.getElementById('job-progress').style.display = running ? 'block' : 'none';
+  document.getElementById('job-output').textContent = job.output || (running ? 'Waiting for logs...' : '');
 }
 function escapeHtml(value) { return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 refresh();
-setInterval(refresh, 2500);
+setInterval(refresh, 1500);
 </script>
 </body>
 </html>`;
