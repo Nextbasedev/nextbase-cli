@@ -290,17 +290,24 @@ function startCliJob(label: string, args: string[]): DashboardJob {
   latestJobId = id;
   const cliPath = fileURLToPath(new URL('./notebot-cli.js', import.meta.url));
   const child = spawn(process.execPath, [cliPath, ...args], { cwd: dirname(cliPath), windowsHide: true });
+  let settled = false;
   const append = (chunk: unknown) => {
     job.output = `${job.output}${String(chunk)}`.slice(-12000);
   };
   child.stdout.on('data', append);
   child.stderr.on('data', append);
+  child.stdout.on('error', append);
+  child.stderr.on('error', append);
   child.once('error', (error) => {
+    if (settled) return;
+    settled = true;
     job.status = 'failed';
     job.finishedAt = new Date().toISOString();
     append(`\n${error instanceof Error ? error.message : String(error)}`);
   });
-  child.once('exit', (code) => {
+  child.once('close', (code) => {
+    if (settled) return;
+    settled = true;
     job.status = code === 0 ? 'done' : 'failed';
     job.finishedAt = new Date().toISOString();
     if (code !== 0 && !job.output.trim()) append(`Exited with code ${code}`);

@@ -202,9 +202,14 @@ async function transcribeSarvamBatch(file: string, key: string, model: string) {
   const init = await sarvamJson<{ job_id: string }>('https://api.sarvam.ai/speech-to-text/job/v1', key, {
     method: 'POST',
     body: JSON.stringify({
+      model: 'saaras:v3',
+      mode: 'transcribe',
+      language_code: 'unknown',
+      with_timestamps: true,
+      with_diarization: true,
       job_parameters: {
-        model: sarvamModel(model),
-        mode: sarvamModel(model) === 'saaras:v3' ? 'codemix' : 'transcribe',
+        model: 'saaras:v3',
+        mode: 'transcribe',
         language_code: 'unknown',
         with_timestamps: true,
         with_diarization: true
