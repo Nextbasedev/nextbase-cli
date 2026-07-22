@@ -51,7 +51,7 @@ notebot tasks
 - **Sarvam** or **Groq** key for multilingual transcription
 - **Groq** key for meeting summaries, decisions, and action items
 
-Meeting notes are stored locally under `~/.notebot/`. Responsibilities are assigned only when explicit in the transcript; otherwise they are marked `suggested` or `unassigned`. `notebot open` launches a local dashboard with Start Meeting, Stop & Generate Notes, meeting history, transcript, decisions, tasks, and a local/remote audio-file input.
+Meeting notes are stored locally under `~/.notebot/`. Responsibilities are assigned only when explicit in the transcript; otherwise they are marked `suggested` or `unassigned`. `notebot open` launches a local dashboard with Start Meeting, Stop & Generate Notes, meeting history, transcript, decisions, tasks, a Remote URL input, and a Choose Local File button for uploading audio directly from the browser.
 
 ## Install without Git
 

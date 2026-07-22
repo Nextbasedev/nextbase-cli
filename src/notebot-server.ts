@@ -1,9 +1,10 @@
 import { createServer } from 'node:http';
 import type { IncomingMessage } from 'node:http';
 import { spawn } from 'node:child_process';
-import { dirname, join } from 'node:path';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { loadActiveMeeting, loadMeetings } from './notebot-storage.js';
+import { loadActiveMeeting, loadMeetings, notebotAudioDir } from './notebot-storage.js';
 
 const html = String.raw`<!doctype html>
 <html lang="en">
@@ -55,10 +56,14 @@ const html = String.raw`<!doctype html>
 
     <div class="card">
       <h2>Process audio file</h2>
-      <p>Paste a local path or a remote URL.</p>
-      <input id="audio-source" placeholder="/Users/me/meeting.wav or https://example.com/audio.mp3" />
+      <p>Paste a remote URL or choose a local audio file.</p>
+      <input id="audio-source" placeholder="https://example.com/audio.mp3" />
       <div style="height:10px"></div>
-      <button class="secondary" onclick="processAudio()">Transcribe & Summarize</button>
+      <div class="row">
+        <button class="secondary" onclick="processRemoteAudio()">Use Remote URL</button>
+        <button onclick="document.getElementById('audio-file').click()">Choose Local File</button>
+      </div>
+      <input id="audio-file" type="file" accept="audio/*,video/mp4,video/webm,.wav,.mp3,.m4a,.mp4,.webm,.ogg,.opus,.flac,.aac" style="display:none" onchange="processUploadedAudio()" />
     </div>
   </section>
 
@@ -88,7 +93,7 @@ async function run(path) {
     await refresh();
   }
 }
-async function processAudio() {
+async function processRemoteAudio() {
   const source = document.getElementById('audio-source').value.trim();
   if (!source) return;
   setBusy(true);
@@ -98,6 +103,23 @@ async function processAudio() {
   } catch (e) {
     document.getElementById('message').textContent = e.message;
   } finally {
+    setBusy(false);
+    await refresh();
+  }
+}
+async function processUploadedAudio() {
+  const input = document.getElementById('audio-file');
+  const file = input.files && input.files[0];
+  if (!file) return;
+  setBusy(true);
+  try {
+    document.getElementById('message').textContent = 'Uploading ' + file.name + '...';
+    const data = await api('/api/upload-audio?name=' + encodeURIComponent(file.name), { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: file });
+    document.getElementById('message').textContent = data.output || 'Audio processed';
+  } catch (e) {
+    document.getElementById('message').textContent = e.message;
+  } finally {
+    input.value = '';
     setBusy(false);
     await refresh();
   }
@@ -138,6 +160,17 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) as Record<string, unknown> : {};
 }
 
+async function readRaw(req: IncomingMessage): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
+}
+
+function safeFileName(value: string) {
+  const name = basename(value || 'audio-file').replace(/[^a-z0-9._-]/gi, '-');
+  return name || 'audio-file';
+}
+
 export async function startNoteBotWebApp(port = 3840): Promise<string> {
   const server = createServer(async (req, res) => {
     try {
@@ -169,6 +202,20 @@ export async function startNoteBotWebApp(port = 3840): Promise<string> {
         const body = await readJson(req);
         const source = typeof body.source === 'string' ? body.source : '';
         const result = await runCli(['audio', source]);
+        res.statusCode = result.code === 0 ? 200 : 500;
+        res.setHeader('content-type', 'application/json');
+        res.end(JSON.stringify({ output: result.output }));
+        return;
+      }
+      if (req.method === 'POST' && req.url?.startsWith('/api/upload-audio')) {
+        const url = new URL(req.url, 'http://127.0.0.1');
+        const name = safeFileName(url.searchParams.get('name') || 'audio-file');
+        const bytes = await readRaw(req);
+        if (bytes.length < 1024) throw new Error('Uploaded audio file is empty or too small.');
+        await mkdir(notebotAudioDir, { recursive: true });
+        const file = join(notebotAudioDir, `${Date.now()}-${name}`);
+        await writeFile(file, bytes);
+        const result = await runCli(['audio', file]);
         res.statusCode = result.code === 0 ? 200 : 500;
         res.setHeader('content-type', 'application/json');
         res.end(JSON.stringify({ output: result.output }));
