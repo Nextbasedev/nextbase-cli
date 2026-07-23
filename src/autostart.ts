@@ -11,7 +11,7 @@ export type AutostartResult = {
 
 function currentCliCommand() {
   const cliPath = fileURLToPath(new URL('./cli.js', import.meta.url));
-  return { executable: process.execPath, args: [cliPath, 'listen'] };
+  return { executable: process.execPath, args: [cliPath, '_listen'] };
 }
 
 function quote(value: string) {

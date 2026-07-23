@@ -65,8 +65,11 @@ async function main() {
       await selectMic(args.includes('--auto'));
       break;
     case 'listen':
-      if (args.includes('--background') || args.includes('--detach')) await startListenerAndReport();
-      else await listen();
+      if (args.includes('--foreground')) await listen();
+      else await startListenerAndReport();
+      break;
+    case '_listen':
+      await listen();
       break;
     case 'logs':
       console.log(await readLogs());
@@ -137,8 +140,8 @@ Commands:
   wisper status           Show current setup
   wisper mic              Pick microphone device
   wisper mic --auto       Test microphones and pick working one
-  wisper listen           Run listener in this Terminal (stops when Terminal closes)
-  wisper listen --background Start detached listener that survives Terminal close
+  wisper listen           Start detached listener that survives Terminal close
+  wisper listen --foreground Run listener in this Terminal for debugging
   wisper stop             Stop background listener
   wisper restart          Restart background listener
   wisper logs             Show listener logs
@@ -236,9 +239,17 @@ async function setup(updateMode = false) {
     prompt.close();
   }
   await showStatus();
+  const finalConfig = await loadConfig();
+  await stopListener();
+  if (finalConfig.autostart) {
+    const result = await enableAutostart();
+    console.log(`\n${result.message}`);
+    console.log('Wisper listener is managed by autostart and will survive closing Terminal.');
+    return;
+  }
+
   // Setup must never keep the user's Terminal open. The listener owns its own
   // detached process, so it survives closing Terminal and behaves like update/restart.
-  await stopListener();
   console.log('\nStarting Wisper listener in the background...');
   await startListenerAndReport();
 }
@@ -264,6 +275,7 @@ async function update() {
 }
 
 async function startListenerAndReport() {
+  await stopListener();
   const listener = startListenerNow();
   console.log(listener.message);
   await new Promise((resolve) => setTimeout(resolve, 1200));

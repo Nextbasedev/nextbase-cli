@@ -32,6 +32,22 @@ wisper setup
 notebot open
 ```
 
+## macOS listener behavior
+
+`wisper listen` starts the listener in the background so it survives closing Terminal. Use foreground mode only for debugging:
+
+```bash
+wisper listen --foreground
+```
+
+For login startup on macOS, use:
+
+```bash
+wisper autostart on
+```
+
+This installs a LaunchAgent and avoids Terminal-owned listener processes.
+
 ## NoteBot — meeting notes
 
 ```bash

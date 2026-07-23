@@ -14,10 +14,15 @@ let needCtrl = CommandLine.arguments[5] == "1"
 var isHeld = false
 
 func modifiersMatch(_ flags: CGEventFlags) -> Bool {
-  let hasCmd = flags.contains(.maskCommand)
-  let hasAlt = flags.contains(.maskAlternate)
-  let hasShift = flags.contains(.maskShift)
-  let hasCtrl = flags.contains(.maskControl)
+  // CGEventFlags can include unrelated system flags (Caps Lock, Fn,
+  // non-coalesced event markers, etc.). Only compare the four modifiers that
+  // are part of a Wisper shortcut. The old exact check could let the hotkey
+  // pass through to the focused app and cause the macOS alert/beep sound.
+  let relevant = flags.intersection([.maskCommand, .maskAlternate, .maskShift, .maskControl])
+  let hasCmd = relevant.contains(.maskCommand)
+  let hasAlt = relevant.contains(.maskAlternate)
+  let hasShift = relevant.contains(.maskShift)
+  let hasCtrl = relevant.contains(.maskControl)
   return hasCmd == needCmd && hasAlt == needAlt && hasShift == needShift && hasCtrl == needCtrl
 }
 
