@@ -8,6 +8,7 @@ import { autostartStatus, disableAutostart, enableAutostart, startListenerNow } 
 import { verifyProviderKey } from './verify.js';
 import { cancelRecording, cleanupOldRecordings, isRecording, recordingSignal, startRecording, stopRecording } from './audio.js';
 import { listenForShortcut } from './hotkey.js';
+import { validateShortcut } from './hotkey.js';
 import { copyFocusedInputText, copySelectedText, pasteIntoActiveApp, shutdownPasteHelper } from './paste.js';
 import { transcribeFile } from './transcribe.js';
 import { polishDictationIfEnabled, rewriteText, type RewriteMode } from './polish.js';
@@ -53,7 +54,7 @@ async function main() {
       await autoUpdateCommand(args);
       break;
     case 'shortcut':
-      await setShortcut(false, createPrompt(), args.join('+'));
+      await setShortcutCommand(args.join('+'));
       break;
     case 'shortcuts':
       await showShortcuts();
@@ -623,7 +624,16 @@ async function selectMic(auto = false) {
   }
 }
 
-async function setShortcut(allowDefault = false, prompt = createPrompt(), directShortcut = '') {
+async function setShortcutCommand(directShortcut = '') {
+  const prompt = createPrompt();
+  try {
+    await setShortcut(false, prompt, directShortcut, true);
+  } finally {
+    prompt.close();
+  }
+}
+
+async function setShortcut(allowDefault = false, prompt = createPrompt(), directShortcut = '', restart = false) {
   try {
     const shortcut = directShortcut.trim() || await (async () => {
       const typed = await prompt.confirm('Capture shortcut by pressing keys now?', true);
@@ -631,9 +641,10 @@ async function setShortcut(allowDefault = false, prompt = createPrompt(), direct
         ? await captureShortcut(defaultShortcut)
         : (await prompt.ask(`Shortcut${allowDefault ? ` [${defaultShortcut}]` : ''}: `) || defaultShortcut);
     })();
+    validateShortcut(shortcut);
     await updateConfig({ shortcut });
     console.log(`Shortcut set to ${shortcut}.`);
-    if (arguments.length < 2 || directShortcut) {
+    if (restart || arguments.length < 2 || directShortcut) {
       await stopListener();
       await startListenerAndReport();
     }

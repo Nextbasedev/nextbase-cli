@@ -48,6 +48,12 @@ function parseShortcut(shortcut: string) {
   };
 }
 
+export function validateShortcut(shortcut: string) {
+  const parsed = parseShortcut(shortcut);
+  if (process.platform === 'win32') windowsVirtualKey(parsed.key);
+  if (process.platform === 'darwin') macKeyCode(parsed.key);
+}
+
 function windowsVirtualKey(key: string) {
   if (/^[A-Z]$/.test(key)) return key.charCodeAt(0);
   if (/^[0-9]$/.test(key)) return key.charCodeAt(0);
