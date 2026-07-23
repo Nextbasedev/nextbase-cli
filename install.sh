@@ -35,10 +35,31 @@ fi
 
 mkdir -p "$INSTALL_DIR" "$BIN_DIR"
 
+stop_existing_processes() {
+  echo "Stopping existing Wisper/NoteBot processes..."
+  for pid_file in "$HOME/.wisper-cli/listener.pid" "$HOME/.notebot/dashboard.pid"; do
+    if [ -f "$pid_file" ]; then
+      pid="$(cat "$pid_file" 2>/dev/null || true)"
+      case "$pid" in
+        ''|*[!0-9]*) ;;
+        *) kill "$pid" 2>/dev/null || true ;;
+      esac
+      rm -f "$pid_file"
+    fi
+  done
+  if command -v pgrep >/dev/null 2>&1; then
+    pgrep -f "$INSTALL_DIR/dist/(cli|notebot-cli|nextbase-cli)\.js" | while read -r pid; do
+      [ "$pid" = "$$" ] || kill "$pid" 2>/dev/null || true
+    done
+  fi
+  sleep 0.7
+}
+
 echo "Downloading Wisper CLI..."
 curl -fsSL "$REPO_TARBALL" -o "$TMP_DIR/wisper-cli.tar.gz"
 tar -xzf "$TMP_DIR/wisper-cli.tar.gz" -C "$TMP_DIR"
 
+stop_existing_processes
 rm -rf "$INSTALL_DIR"
 mv "$TMP_DIR/nextbase-cli-master" "$INSTALL_DIR"
 

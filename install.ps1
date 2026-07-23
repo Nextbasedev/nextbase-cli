@@ -23,6 +23,33 @@ function Run($Exe, $Arguments) {
   }
 }
 
+function Stop-ExistingNextbaseProcesses($InstallDir, $InstallRoot) {
+  Write-Host "Stopping existing Wisper/NoteBot processes..."
+  $PidFiles = @(
+    (Join-Path $InstallRoot "listener.pid"),
+    (Join-Path $env:USERPROFILE ".notebot\dashboard.pid")
+  )
+
+  foreach ($PidFile in $PidFiles) {
+    if (Test-Path $PidFile) {
+      try {
+        $PidValue = [int](Get-Content $PidFile -ErrorAction Stop | Select-Object -First 1)
+        Stop-Process -Id $PidValue -Force -ErrorAction SilentlyContinue
+        Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+      } catch {}
+    }
+  }
+
+  try {
+    $EscapedInstallDir = [regex]::Escape($InstallDir)
+    Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+      Where-Object { $_.CommandLine -and $_.CommandLine -match $EscapedInstallDir -and $_.ProcessId -ne $PID } |
+      ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+  } catch {}
+
+  Start-Sleep -Milliseconds 700
+}
+
 Need "node" "Install Node.js from https://nodejs.org, then reopen terminal."
 Need "npm" "Install Node.js from https://nodejs.org, then reopen terminal."
 
@@ -90,6 +117,8 @@ try {
       throw "Build completed but $Required was not found. Install aborted without touching current install."
     }
   }
+
+  Stop-ExistingNextbaseProcesses $InstallDir $InstallRoot
 
   if (Test-Path $InstallDir) {
     Remove-Item $InstallDir -Recurse -Force
