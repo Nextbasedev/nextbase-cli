@@ -54,8 +54,8 @@ function parseShortcut(shortcut: string) {
 export function validateShortcut(shortcut: string) {
   const parsed = parseShortcut(shortcut);
   if (!parsed.key) {
-    if (process.platform === 'darwin') return;
-    throw new Error(`Modifier-only shortcuts like ${shortcut} are only supported on macOS. Add a final key on Windows, e.g. Ctrl+Alt+Space.`);
+    if (process.platform === 'darwin' || process.platform === 'win32') return;
+    throw new Error(`Modifier-only shortcuts like ${shortcut} are only supported on Windows and macOS. Add a final key, e.g. Ctrl+Alt+Space.`);
   }
   if (process.platform === 'win32') windowsVirtualKey(parsed.key);
   if (process.platform === 'darwin') macKeyCode(parsed.key);
@@ -78,7 +78,7 @@ function windowsVirtualKey(key: string) {
 
 function listenForWindowsHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   const parsed = parseShortcut(shortcut);
-  if (!parsed.key) throw new Error(`Modifier-only shortcuts like ${shortcut} are only supported on macOS. Add a final key on Windows, e.g. Ctrl+Alt+Space.`);
+  if (!parsed.key) return listenForWindowsModifierHotkey(shortcut, parsed, onPress);
   let modifiers = 0;
   if (parsed.alt) modifiers += 0x0001;
   if (parsed.ctrl) modifiers += 0x0002;
@@ -150,6 +150,58 @@ try {
   child.stderr.setEncoding('utf8');
   child.stderr.on('data', (chunk: string) => {
     if (chunk.includes('REGISTER_FAILED')) void log(`Could not register shortcut ${shortcut}. It may be used by another app. Try F12 or Ctrl+Alt+Space.`);
+  });
+
+  return () => child.kill();
+}
+
+function listenForWindowsModifierHotkey(shortcut: string, parsed: ReturnType<typeof parseShortcut>, onPress: (event?: 'down' | 'up') => void) {
+  const script = `
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class HotKeyPollNative {
+  [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vKey);
+}
+"@
+$needCtrl = ${parsed.ctrl ? '$true' : '$false'}
+$needAlt = ${parsed.alt ? '$true' : '$false'}
+$needShift = ${parsed.shift ? '$true' : '$false'}
+$needMeta = ${parsed.meta ? '$true' : '$false'}
+function Down($key) { return (([HotKeyPollNative]::GetAsyncKeyState($key) -band 0x8000) -ne 0) }
+function RequiredDown {
+  if ($needCtrl -and -not ((Down 0x11) -or (Down 0xA2) -or (Down 0xA3))) { return $false }
+  if ($needAlt -and -not ((Down 0x12) -or (Down 0xA4) -or (Down 0xA5))) { return $false }
+  if ($needShift -and -not ((Down 0x10) -or (Down 0xA0) -or (Down 0xA1))) { return $false }
+  if ($needMeta -and -not ((Down 0x5B) -or (Down 0x5C))) { return $false }
+  return $true
+}
+[Console]::Out.WriteLine("REGISTERED")
+$held = $false
+while ($true) {
+  $down = RequiredDown
+  if ($down -and -not $held) { $held = $true; [Console]::Out.WriteLine("HOTKEY_DOWN") }
+  if (-not $down -and $held) { $held = $false; [Console]::Out.WriteLine("HOTKEY_UP") }
+  Start-Sleep -Milliseconds 25
+}
+`;
+
+  const child: ChildProcessWithoutNullStreams = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], {
+    windowsHide: true
+  });
+
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk: string) => {
+    for (const line of chunk.split(/\r?\n/)) {
+      if (line.trim() === 'REGISTERED') void log(`Shortcut registered: ${shortcut}`);
+      if (line.trim() === 'HOTKEY_DOWN') onPress('down');
+      if (line.trim() === 'HOTKEY_UP') onPress('up');
+    }
+  });
+
+  child.stderr.setEncoding('utf8');
+  child.stderr.on('data', (chunk: string) => {
+    if (chunk.trim()) void log(`Windows modifier shortcut error: ${chunk.trim()}`);
   });
 
   return () => child.kill();
