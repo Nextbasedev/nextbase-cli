@@ -62,6 +62,12 @@ if [ ! -f "$INSTALL_DIR/dist/cli.js" ]; then
   echo "Local TypeScript build did not produce dist; trying npx fallback..."
   npx --yes --cache "$TMP_DIR/npm-cache" -p typescript -p @types/node tsc -p tsconfig.json
 fi
+for required in "$INSTALL_DIR/dist/nextbase-cli.js" "$INSTALL_DIR/dist/cli.js" "$INSTALL_DIR/dist/notebot-cli.js"; do
+  if [ ! -f "$required" ]; then
+    echo "Build completed but $required was not found. Install aborted." >&2
+    exit 1
+  fi
+done
 chmod +x "$INSTALL_DIR/dist/nextbase-cli.js" "$INSTALL_DIR/dist/cli.js" "$INSTALL_DIR/dist/notebot-cli.js"
 
 ln -sf "$INSTALL_DIR/dist/nextbase-cli.js" "$NEXTBASE_BIN_PATH"

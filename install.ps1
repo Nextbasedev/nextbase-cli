@@ -84,9 +84,11 @@ try {
     Pop-Location
   }
 
-  $CliPath = Join-Path $StageDir "dist\cli.js"
-  if (-not (Test-Path $CliPath)) {
-    throw "Build completed but dist\cli.js was not found. Install aborted without touching current install."
+  $RequiredDistFiles = @("dist\nextbase-cli.js", "dist\cli.js", "dist\notebot-cli.js")
+  foreach ($Required in $RequiredDistFiles) {
+    if (-not (Test-Path (Join-Path $StageDir $Required))) {
+      throw "Build completed but $Required was not found. Install aborted without touching current install."
+    }
   }
 
   if (Test-Path $InstallDir) {
