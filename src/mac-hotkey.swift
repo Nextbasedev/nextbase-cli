@@ -6,7 +6,9 @@ if CommandLine.arguments.count < 6 {
   exit(64)
 }
 
-let keyCode = CGKeyCode(UInt16(CommandLine.arguments[1]) ?? 0)
+let rawKeyCode = Int(CommandLine.arguments[1]) ?? 0
+let modifierOnly = rawKeyCode < 0
+let keyCode = CGKeyCode(UInt16(max(rawKeyCode, 0)))
 let needCmd = CommandLine.arguments[2] == "1"
 let needAlt = CommandLine.arguments[3] == "1"
 let needShift = CommandLine.arguments[4] == "1"
@@ -31,7 +33,24 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
     return Unmanaged.passUnretained(event)
   }
 
-  guard type == .keyDown || type == .keyUp else {
+  if modifierOnly && type == .flagsChanged {
+    let matches = modifiersMatch(event.flags)
+    if matches && !isHeld {
+      isHeld = true
+      print("HOTKEY_DOWN")
+      fflush(stdout)
+      return nil
+    }
+    if !matches && isHeld {
+      isHeld = false
+      print("HOTKEY_UP")
+      fflush(stdout)
+      return nil
+    }
+    return Unmanaged.passUnretained(event)
+  }
+
+  guard !modifierOnly && (type == .keyDown || type == .keyUp) else {
     return Unmanaged.passUnretained(event)
   }
 
@@ -57,7 +76,9 @@ let callback: CGEventTapCallBack = { _, type, event, _ in
   return Unmanaged.passUnretained(event)
 }
 
-let mask = (1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue)
+let mask = modifierOnly
+  ? (1 << CGEventType.flagsChanged.rawValue)
+  : ((1 << CGEventType.keyDown.rawValue) | (1 << CGEventType.keyUp.rawValue))
 
 guard let tap = CGEvent.tapCreate(
   tap: .cgSessionEventTap,

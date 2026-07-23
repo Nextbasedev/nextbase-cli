@@ -40,6 +40,12 @@ notebot open
 wisper listen --foreground
 ```
 
+macOS also supports modifier-only shortcuts like `Ctrl+Command` / `Ctrl+Window` when typed directly:
+
+```bash
+wisper shortcut Ctrl+Command
+```
+
 For login startup on macOS, use:
 
 ```bash

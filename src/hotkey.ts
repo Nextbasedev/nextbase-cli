@@ -22,6 +22,9 @@ function normalizeKey(key: string) {
     .replace('CONTROL', 'CTRL')
     .replace('COMMAND', 'META')
     .replace('CMD', 'META')
+    .replace('WINDOWS', 'META')
+    .replace('WINDOW', 'META')
+    .replace('WIN', 'META')
     .replace('OPTION', 'ALT')
     .replace(/\s+/g, 'SPACE');
 }
@@ -38,7 +41,7 @@ export function normalizeShortcut(shortcut: string) {
 function parseShortcut(shortcut: string) {
   const parts = normalizeShortcut(shortcut).split('+').filter(Boolean);
   const key = parts.find((part) => !['CTRL', 'ALT', 'SHIFT', 'META'].includes(part));
-  if (!key) throw new Error(`Shortcut needs a final key: ${shortcut}`);
+  if (!key && parts.length < 2) throw new Error(`Shortcut needs a final key: ${shortcut}`);
   return {
     ctrl: parts.includes('CTRL'),
     alt: parts.includes('ALT'),
@@ -50,6 +53,10 @@ function parseShortcut(shortcut: string) {
 
 export function validateShortcut(shortcut: string) {
   const parsed = parseShortcut(shortcut);
+  if (!parsed.key) {
+    if (process.platform === 'darwin') return;
+    throw new Error(`Modifier-only shortcuts like ${shortcut} are only supported on macOS. Add a final key on Windows, e.g. Ctrl+Alt+Space.`);
+  }
   if (process.platform === 'win32') windowsVirtualKey(parsed.key);
   if (process.platform === 'darwin') macKeyCode(parsed.key);
 }
@@ -71,6 +78,7 @@ function windowsVirtualKey(key: string) {
 
 function listenForWindowsHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   const parsed = parseShortcut(shortcut);
+  if (!parsed.key) throw new Error(`Modifier-only shortcuts like ${shortcut} are only supported on macOS. Add a final key on Windows, e.g. Ctrl+Alt+Space.`);
   let modifiers = 0;
   if (parsed.alt) modifiers += 0x0001;
   if (parsed.ctrl) modifiers += 0x0002;
@@ -164,7 +172,7 @@ function macKeyCode(key: string) {
 function listenForMacHotkey(shortcut: string, onPress: (event?: 'down' | 'up') => void) {
   const parsed = parseShortcut(shortcut);
   const helper = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'mac-hotkey.swift');
-  const child = spawn('swift', [helper, String(macKeyCode(parsed.key)), parsed.meta ? '1' : '0', parsed.alt ? '1' : '0', parsed.shift ? '1' : '0', parsed.ctrl ? '1' : '0']);
+  const child = spawn('swift', [helper, parsed.key ? String(macKeyCode(parsed.key)) : '-1', parsed.meta ? '1' : '0', parsed.alt ? '1' : '0', parsed.shift ? '1' : '0', parsed.ctrl ? '1' : '0']);
 
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk: string) => {
