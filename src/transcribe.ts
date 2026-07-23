@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm } from 'node:fs/promises';
+import { mkdir, readFile, rm, stat } from 'node:fs/promises';
 import { spawn, spawnSync } from 'node:child_process';
 import { basename, join } from 'node:path';
 import { homedir } from 'node:os';
@@ -11,6 +11,7 @@ export async function transcribeFile(file: string, config: Config): Promise<stri
 
   if (config.provider === 'groq') return transcribeGroq(file, key, config.model || 'whisper-large-v3-turbo');
   if (config.provider === 'elevenlabs') return transcribeElevenLabs(file, key, config.model || 'scribe_v2');
+  if (config.provider === 'nextbase-codex') return transcribeNextbaseCodex(file, key);
   if (config.provider === 'sarvam') {
     try {
       return await transcribeSarvamAuto(file, key, config.model || 'saaras:v3');
@@ -66,6 +67,26 @@ async function transcribeElevenLabs(file: string, key: string, model: string) {
   });
   const body = await response.json().catch(() => ({})) as { text?: string; detail?: string };
   if (!response.ok) throw new Error(body.detail || `ElevenLabs transcription failed: HTTP ${response.status}`);
+  return (body.text || '').trim();
+}
+
+async function transcribeNextbaseCodex(file: string, key: string) {
+  const size = (await stat(file)).size;
+  const maxBytes = 25 * 1024 * 1024;
+  if (size > maxBytes) throw new Error('Nextbase Codex Transcribe accepts audio files up to 25 MiB. Use Sarvam Batch for long meetings.');
+  const { audioFile } = await audioForm(file);
+  const form = new FormData();
+  form.set('file', audioFile);
+  form.set('model', 'codex-transcribe');
+  form.set('response_format', 'json');
+
+  const response = await fetch('https://nextbase-model-gateway.infinitycorp.tech/v1/openai-codex/audio/transcriptions', {
+    method: 'POST',
+    headers: { 'x-api-key': key },
+    body: form
+  });
+  const body = await response.json().catch(() => ({})) as { text?: string; error?: { message?: string }; message?: string };
+  if (!response.ok) throw new Error(body.error?.message || body.message || `Nextbase Codex transcription failed: HTTP ${response.status}`);
   return (body.text || '').trim();
 }
 

@@ -50,17 +50,21 @@ async function setup() {
   const prompt = createPrompt();
   try {
     const config = await loadConfig();
-    const provider = await prompt.choose('Meeting transcription provider:', ['Sarvam (best for Hindi/Gujarati/English mix)', 'Groq (fast general fallback)']);
-    const selected: Provider = provider.startsWith('Sarvam') ? 'sarvam' : 'groq';
+    const provider = await prompt.choose('Meeting transcription provider:', [
+      'Sarvam (best for long Hindi/Gujarati/English meetings + speaker labels)',
+      'Groq (fast general fallback)',
+      'Nextbase Codex Transcribe (subscription gateway, files up to 25 MiB)'
+    ]);
+    const selected: Provider = provider.startsWith('Sarvam') ? 'sarvam' : provider.startsWith('Nextbase') ? 'nextbase-codex' : 'groq';
     const existingSttKey = config.keys?.[selected];
     if (!existingSttKey) {
-      const key = await prompt.ask(`Paste ${selected} API key: `);
+      const key = await prompt.ask(selected === 'nextbase-codex' ? 'Paste Nextbase gateway key (nbmg_...): ' : `Paste ${selected} API key: `);
       const result = await verifyProviderKey(selected, key);
       console.log(result.message);
       if (!result.ok) throw new Error(`Could not verify ${selected} key. Setup stopped.`);
-      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : 'whisper-large-v3-turbo', keys: { [selected]: key } });
+      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : selected === 'nextbase-codex' ? 'codex-transcribe' : 'whisper-large-v3-turbo', keys: { [selected]: key } });
     } else {
-      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : 'whisper-large-v3-turbo' });
+      await updateConfig({ provider: selected, model: selected === 'sarvam' ? 'saaras:v3' : selected === 'nextbase-codex' ? 'codex-transcribe' : 'whisper-large-v3-turbo' });
       console.log(`${selected} key already saved.`);
     }
 

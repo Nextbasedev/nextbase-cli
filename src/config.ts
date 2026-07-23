@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
-export type Provider = 'groq' | 'elevenlabs' | 'sarvam';
+export type Provider = 'groq' | 'elevenlabs' | 'sarvam' | 'nextbase-codex';
 
 export type ModelOption = {
   id: string;
@@ -35,10 +35,11 @@ const configFile = join(dataDir, 'config.json');
 export const modelOptions: ModelOption[] = [
   { id: 'groq-whisper', label: 'Groq Whisper Large v3 Turbo', provider: 'groq', model: 'whisper-large-v3-turbo' },
   { id: 'elevenlabs-scribe', label: 'ElevenLabs Scribe v2', provider: 'elevenlabs', model: 'scribe_v2' },
-  { id: 'sarvam-saaras', label: 'Sarvam Saaras v3', provider: 'sarvam', model: 'saaras:v3' }
+  { id: 'sarvam-saaras', label: 'Sarvam Saaras v3', provider: 'sarvam', model: 'saaras:v3' },
+  { id: 'nextbase-codex-transcribe', label: 'Nextbase Codex Transcribe', provider: 'nextbase-codex', model: 'codex-transcribe' }
 ];
 
-export const providers: Provider[] = ['groq', 'elevenlabs', 'sarvam'];
+export const providers: Provider[] = ['groq', 'elevenlabs', 'sarvam', 'nextbase-codex'];
 export const defaultShortcut = 'Ctrl+Alt+Space';
 export const defaultPolishShortcut = 'CommandOrControl+Shift+P';
 export const defaultSpellShortcut = 'CommandOrControl+Alt+S';

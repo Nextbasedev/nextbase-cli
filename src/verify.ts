@@ -35,6 +35,16 @@ export async function verifyProviderKey(provider: Provider, key: string): Promis
       // `/speech-to-text` performs the real API validation.
       return { ok: true, message: 'Sarvam key saved. It will be validated on first transcription.' };
     }
+
+    if (provider === 'nextbase-codex') {
+      if (!key.startsWith('nbmg_')) return { ok: false, message: 'Nextbase key must start with nbmg_.' };
+      const response = await fetch('https://nextbase-model-gateway.infinitycorp.tech/v1/token/check', {
+        headers: { authorization: `Bearer ${key}` }
+      });
+      return response.ok
+        ? { ok: true, message: 'Nextbase Codex gateway key verified.' }
+        : { ok: false, message: `Nextbase Codex verification failed: HTTP ${response.status}` };
+    }
   } catch (error) {
     return { ok: false, message: `Verification error: ${error instanceof Error ? error.message : String(error)}` };
   }

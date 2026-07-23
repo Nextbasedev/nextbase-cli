@@ -65,7 +65,8 @@ async function main() {
       await selectMic(args.includes('--auto'));
       break;
     case 'listen':
-      await listen();
+      if (args.includes('--background') || args.includes('--detach')) await startListenerAndReport();
+      else await listen();
       break;
     case 'logs':
       console.log(await readLogs());
@@ -136,7 +137,8 @@ Commands:
   wisper status           Show current setup
   wisper mic              Pick microphone device
   wisper mic --auto       Test microphones and pick working one
-  wisper listen           Run background listener
+  wisper listen           Run listener in this Terminal (stops when Terminal closes)
+  wisper listen --background Start detached listener that survives Terminal close
   wisper stop             Stop background listener
   wisper restart          Restart background listener
   wisper logs             Show listener logs
@@ -544,7 +546,7 @@ async function showShortcuts() {
 async function selectProvider(prompt = createPrompt()) {
   try {
     const provider = await prompt.choose('Select provider:', providers) as Provider;
-    const key = await prompt.ask(`Paste ${provider} API key: `);
+    const key = await prompt.ask(provider === 'nextbase-codex' ? 'Paste Nextbase gateway key (nbmg_...): ' : `Paste ${provider} API key: `);
     const verification = await verifyProviderKey(provider, key);
     console.log(verification.message);
     await updateConfig({ provider, keys: key ? { [provider]: key } : undefined });
@@ -559,7 +561,7 @@ async function selectModel(prompt = createPrompt()) {
     const labels = modelOptions.map((option) => option.label);
     const label = await prompt.choose('Select model:', labels);
     const option = modelOptions.find((candidate) => candidate.label === label) as ModelOption;
-    const key = await prompt.ask(`Paste ${option.provider} API key: `);
+    const key = await prompt.ask(option.provider === 'nextbase-codex' ? 'Paste Nextbase gateway key (nbmg_...): ' : `Paste ${option.provider} API key: `);
     const verification = await verifyProviderKey(option.provider, key);
     console.log(verification.message);
     await updateConfig({
