@@ -66,7 +66,10 @@ async function main() {
       await selectMic(args.includes('--auto'));
       break;
     case 'listen':
-      if (args.includes('--foreground')) await listen();
+      if (args.includes('--foreground')) {
+        await stopListener();
+        await listen();
+      }
       else await startListenerAndReport();
       break;
     case '_listen':
