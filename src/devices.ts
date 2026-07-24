@@ -7,6 +7,7 @@ export type InputDeviceProbe = {
   device: string;
   score: number;
   ok: boolean;
+  hasSignal?: boolean;
   error?: string;
 };
 
@@ -51,7 +52,10 @@ export function probeInputDevice(device: string): InputDeviceProbe {
     });
     const output = `${stat.stdout || ''}\n${stat.stderr || ''}`;
     const score = parseSoxStat(output);
-    return { device, score, ok: score > 0.0001 };
+    // `ok` means SoX successfully opened the input device. A user can be
+    // silent during this short probe, so a zero level must not make a real
+    // microphone look unusable. Signal is only used as a ranking preference.
+    return { device, score, ok: true, hasSignal: score > 0.0001 };
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -69,11 +73,12 @@ export function autoDetectInputDevice(configured?: string): { device: string; pr
   ]));
 
   const probes = ordered.map(probeInputDevice);
-  const working = probes
-    .filter((probe) => probe.ok)
-    .sort((a, b) => b.score - a.score)[0];
+  const usable = probes.filter((probe) => probe.ok);
+  const realMic = usable.filter((probe) => !isLikelyVirtual(probe.device));
+  const preferred = [...realMic, ...usable]
+    .sort((a, b) => Number(Boolean(b.hasSignal)) - Number(Boolean(a.hasSignal)) || b.score - a.score)[0];
 
-  return { device: working?.device || preferredInputDevice(configured), probes };
+  return { device: preferred?.device || devices.find((device) => !isLikelyVirtual(device)) || preferredInputDevice(), probes };
 }
 
 export function preferredInputDevice(configured?: string) {
