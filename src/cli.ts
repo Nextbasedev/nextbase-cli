@@ -779,7 +779,19 @@ async function listen() {
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut held. Recording from ${device}... release shortcut to stop.`);
       await startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
-      await startRecording(device);
+      try {
+        await startRecording(device);
+      } catch (error) {
+        await restoreMediaBehavior().catch(() => undefined);
+        if (process.platform !== 'win32') throw error;
+        await log(`Could not open ${device}: ${(error as Error).message}`);
+        await log('Auto-detecting a working Windows microphone...');
+        const result = autoDetectInputDevice();
+        const replacement = result.probes.find((probe) => probe.ok && probe.device !== device)?.device;
+        if (!replacement) throw error;
+        await updateConfig({ audioDevice: replacement });
+        await log(`Switched microphone to ${replacement}. Hold shortcut again to record.`);
+      }
       return;
     }
 
@@ -794,7 +806,19 @@ async function listen() {
       const device = preferredInputDevice(latestConfig.audioDevice);
       await log(`Shortcut detected. Recording from ${device}... press shortcut again to stop.`);
       await startMediaBehavior(latestConfig).catch((error) => log(`Audio ducking failed: ${error.message}`));
-      await startRecording(device);
+      try {
+        await startRecording(device);
+      } catch (error) {
+        await restoreMediaBehavior().catch(() => undefined);
+        if (process.platform !== 'win32') throw error;
+        await log(`Could not open ${device}: ${(error as Error).message}`);
+        await log('Auto-detecting a working Windows microphone...');
+        const result = autoDetectInputDevice();
+        const replacement = result.probes.find((probe) => probe.ok && probe.device !== device)?.device;
+        if (!replacement) throw error;
+        await updateConfig({ audioDevice: replacement });
+        await log(`Switched microphone to ${replacement}. Press shortcut again to record.`);
+      }
       return;
     }
     await finishRecording();

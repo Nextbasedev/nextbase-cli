@@ -77,6 +77,7 @@ export async function startRecording(audioDevice?: string): Promise<string> {
   const done = new Promise<void>((resolve, reject) => {
     child.once('error', reject);
     child.once('close', (code) => {
+      if (active?.process === child) active = undefined;
       if (code === 0 || code === null || activeSignals.includes((child.signalCode || '') as typeof activeSignals[number])) {
         resolve();
         return;
@@ -86,6 +87,14 @@ export async function startRecording(audioDevice?: string): Promise<string> {
   });
 
   active = { process: child, file, startedAt: Date.now(), done };
+  // SoX can fail immediately when a Windows virtual/removed audio device is
+  // selected. Keep the rejection observed until stop/cancel consumes it so a
+  // failed start never becomes an unhandled Node rejection that kills Wisper.
+  void done.catch(() => undefined);
+  // Give SoX a moment to open the device. Invalid WaveAudio/virtual devices
+  // fail immediately; surface that to the hotkey handler as a normal error.
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  if (child.exitCode !== null) await done;
   return file;
 }
 
